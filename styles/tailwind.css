@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Tailwind v4 automatically detects your source files, 
+  so you don't strictly need the @source directive anymore, 
+  but you MUST use @plugin for animations.
+*/
+@plugin "tailwindcss-animate";
