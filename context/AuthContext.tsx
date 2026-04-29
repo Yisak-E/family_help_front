@@ -14,7 +14,6 @@ export interface User {
   familyName?: string;
   reputationScore?: number;
 }
-
 // Matches SignupRequest.java
 export interface RegisterData {
   firstName: string;
