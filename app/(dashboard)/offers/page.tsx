@@ -7,15 +7,13 @@ import { HelpOffer } from '@/services/mockData';
 import { Plus, Baby, BookOpen, Car, Heart, Home, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Copy the exact content of your Offers component here, 
-// replacing just the imports at the top.
 export default function Offers() {
   const { user } = useAuth();
-  const [offers, setOffers] = useState<HelpOffer[]>([]);
+  const [offers, setOffers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [selectedOffer, setSelectedOffer] = useState<HelpOffer | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<any | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
 
   useEffect(() => {
@@ -57,9 +55,9 @@ export default function Offers() {
 
   const filteredOffers = filterType === 'all'
     ? offers
-    : offers.filter(o => o.type === filterType);
+    : offers.filter(o => o.serviceCategory === filterType); // Adjusted for backend field name
 
-  const handleRequestClick = (offer: HelpOffer) => {
+  const handleRequestClick = (offer: any) => {
     setSelectedOffer(offer);
     setShowRequestModal(true);
   };
@@ -124,21 +122,16 @@ export default function Offers() {
             <div key={offer.id} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`p-3 rounded-lg ${getTypeColor(offer.type)}`}>
-                    {getTypeIcon(offer.type)}
+                  <div className={`p-3 rounded-lg ${getTypeColor(offer.serviceCategory)}`}>
+                    {getTypeIcon(offer.serviceCategory)}
                   </div>
-                  <span className="text-xs text-gray-500">
-                    {new Date(offer.createdAt).toLocaleDateString()}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${offer.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {offer.status}
                   </span>
                 </div>
 
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{offer.title}</h3>
                 <p className="text-sm text-gray-600 mb-3">{offer.description}</p>
-
-                <div className="mb-4">
-                  <p className="text-xs text-gray-500 mb-1">Availability:</p>
-                  <p className="text-sm text-gray-700">{offer.availability}</p>
-                </div>
 
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div>
@@ -146,10 +139,10 @@ export default function Offers() {
                   </div>
                   <button
                     onClick={() => handleRequestClick(offer)}
-                    disabled={offer.familyId === user?.id}
+                    disabled={offer.familyName === user?.familyName || offer.status !== 'AVAILABLE'}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    {offer.familyId === user?.id ? 'Your Offer' : 'Request Help'}
+                    {offer.familyName === user?.familyName ? 'Your Offer' : 'Request Help'}
                   </button>
                 </div>
               </div>
@@ -175,23 +168,23 @@ export default function Offers() {
 function CreateOfferModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    type: 'childcare' as HelpOffer['type'],
+    type: 'childcare',
     title: '',
     description: '',
-    availability: ''
   });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !user.familyName) return;
 
     setLoading(true);
     try {
       await api.createOffer({
-        ...formData,
-        familyId: user.id,
-        familyName: user.familyName
+        familyName: user.familyName, 
+        serviceCategory: formData.type,
+        description: formData.description,
+        status: 'AVAILABLE' // Matches CreateOfferDto
       });
       toast.success('Help offer created successfully!');
       onSuccess();
@@ -214,7 +207,7 @@ function CreateOfferModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             <label className="block text-sm font-medium text-gray-700 mb-2">Type of Help</label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as HelpOffer['type'] }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
             >
               <option value="childcare">Childcare</option>
@@ -238,26 +231,14 @@ function CreateOfferModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description & Availability</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               required
               rows={4}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              placeholder="Describe what help you can provide"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Availability</label>
-            <input
-              type="text"
-              value={formData.availability}
-              onChange={(e) => setFormData(prev => ({ ...prev, availability: e.target.value }))}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., Weekdays 3-6 PM"
+              placeholder="Describe what help you can provide and when you are available"
             />
           </div>
 
@@ -283,9 +264,8 @@ function CreateOfferModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   );
 }
 
-function RequestHelpModal({ offer, onClose }: { offer: HelpOffer; onClose: () => void }) {
+function RequestHelpModal({ offer, onClose }: { offer: any; onClose: () => void }) {
   const { user } = useAuth();
-  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -294,16 +274,10 @@ function RequestHelpModal({ offer, onClose }: { offer: HelpOffer; onClose: () =>
 
     setLoading(true);
     try {
-      await api.createRequest({
-        requesterId: user.id,
-        requesterName: user.familyName,
-        offerId: offer.id,
-        offerTitle: offer.title,
-        providerId: offer.familyId,
-        providerName: offer.familyName,
-        message
-      });
-      toast.success('Request sent successfully!');
+      // Connects directly to TaskController#acceptTask
+      await api.acceptTask(offer.id);
+      
+      toast.success('Your request to accept this offer has been sent!');
       onClose();
     } catch (error) {
       toast.error('Failed to send request');
@@ -320,17 +294,14 @@ function RequestHelpModal({ offer, onClose }: { offer: HelpOffer; onClose: () =>
           <p className="text-gray-600 mt-1">{offer.title}</p>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Your Message</label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              required
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              placeholder="Explain your needs and when you need help..."
-            />
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-gray-700 mb-2"><strong>Provider:</strong> {offer.familyName}</p>
+            <p className="text-sm text-gray-700 mb-2"><strong>Details:</strong> {offer.description}</p>
           </div>
+
+          <p className="text-gray-700 text-sm">
+            Clicking send will accept this offer and notify the {offer.familyName}. You can track the progress in "My Activities".
+          </p>
 
           <div className="flex justify-end gap-3 pt-4">
             <button
@@ -348,7 +319,7 @@ function RequestHelpModal({ offer, onClose }: { offer: HelpOffer; onClose: () =>
               {loading ? 'Sending...' : (
                 <>
                   <Send className="w-4 h-4 mr-2" />
-                  Send Request
+                  Accept & Send Request
                 </>
               )}
             </button>

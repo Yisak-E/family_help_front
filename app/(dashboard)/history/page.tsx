@@ -3,27 +3,30 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
-import { HelpRequest, Feedback } from '@/services/mockData';
 import { Clock, CheckCircle, Star } from 'lucide-react';
 
 export default function History() {
   const { user } = useAuth();
-  const [history, setHistory] = useState<HelpRequest[]>([]);
-  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [feedback, setFeedback] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [user]);
 
   const loadHistory = async () => {
-    if (!user) return;
+    if (!user || !user.familyId) return;
     try {
-      const [historyData, feedbackData] = await Promise.all([
-        api.getHistory(user.id),
-        api.getFeedbackForFamily(user.id)
+      const [activitiesData, feedbackData] = await Promise.all([
+        api.getMyActivities(),
+        api.getFeedbackForFamily(user.familyId) // Matches the new FeedbackController
       ]);
-      setHistory(historyData);
+      
+      // Filter out only the completed interactions for the history log
+      const completedTasks = activitiesData.filter((a: any) => a.status === 'COMPLETED');
+      
+      setHistory(completedTasks);
       setFeedback(feedbackData);
     } catch (error) {
       console.error('Failed to load history:', error);
@@ -40,7 +43,7 @@ export default function History() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
           <div className="flex items-center mb-2">
             <CheckCircle className="w-8 h-8 text-green-600 mr-3" />
             <div>
@@ -50,17 +53,17 @@ export default function History() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
           <div className="flex items-center mb-2">
             <Star className="w-8 h-8 text-yellow-600 mr-3" />
             <div>
-              <p className="text-2xl font-bold text-gray-900">{user?.reputationScore.toFixed(1)}</p>
+              <p className="text-2xl font-bold text-gray-900">{user?.reputationScore?.toFixed(1) || '0.0'}</p>
               <p className="text-sm text-gray-600">Reputation Score</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
           <div className="flex items-center mb-2">
             <Star className="w-8 h-8 text-purple-600 mr-3" />
             <div>
@@ -72,7 +75,7 @@ export default function History() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-lg shadow border border-gray-100">
           <div className="p-6 border-b">
             <h2 className="text-xl font-semibold text-gray-900">Completed Interactions</h2>
           </div>
@@ -89,17 +92,13 @@ export default function History() {
                 {history.map(item => (
                   <div key={item.id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium text-gray-900">{item.offerTitle}</h3>
+                      <h3 className="font-medium text-gray-900">[{item.type}] {item.title || item.category}</h3>
                       <CheckCircle className="w-5 h-5 text-green-600" />
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">{item.message}</p>
+                    <p className="text-sm text-gray-600 mb-3">{item.description}</p>
                     <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>
-                        {item.requesterId === user?.id
-                          ? `Provider: ${item.providerName}`
-                          : `Requester: ${item.requesterName}`}
-                      </span>
-                      <span>Completed: {new Date(item.updatedAt).toLocaleDateString()}</span>
+                      <span>Community Interaction</span>
+                      <span>Completed</span>
                     </div>
                   </div>
                 ))}
@@ -108,7 +107,7 @@ export default function History() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-lg shadow border border-gray-100">
           <div className="p-6 border-b">
             <h2 className="text-xl font-semibold text-gray-900">Reviews & Feedback</h2>
           </div>
@@ -125,7 +124,10 @@ export default function History() {
                 {feedback.map(item => (
                   <div key={item.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="font-medium text-gray-900">{item.fromFamilyName}</span>
+                      {/* Handles nested object structure if Spring Boot returns the full Family entity */}
+                      <span className="font-medium text-gray-900">
+                        {item.reviewerFamily?.familyName || item.reviewerFamilyName || 'Community Member'}
+                      </span>
                       <div className="flex items-center">
                         {[...Array(5)].map((_, i) => (
                           <Star
@@ -138,9 +140,11 @@ export default function History() {
                       </div>
                     </div>
                     <p className="text-sm text-gray-700 mb-2">{item.comment}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </p>
+                    {item.createdAt && (
+                      <p className="text-xs text-gray-500">
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

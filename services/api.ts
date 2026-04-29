@@ -1,142 +1,116 @@
-import { mockOffers, mockRequests, mockFeedback, mockFamilies, mockHelpRequestPosts, HelpOffer, HelpRequest, Feedback, Family, HelpRequestPost } from './mockData';
+// services/api.ts
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:8443';
 
-// Simulated delay for API calls
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// In-memory storage for simulated data
-let offers: HelpOffer[] = [...mockOffers];
-let requests: HelpRequest[] = [...mockRequests];
-let feedback: Feedback[] = [...mockFeedback];
-let families: Family[] = [...mockFamilies];
-let helpRequestPosts: HelpRequestPost[] = [...mockHelpRequestPosts];
+const getHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
 
 export const api = {
-  // Offers
-  async getOffers(): Promise<HelpOffer[]> {
-    await delay(300);
-    return [...offers];
+  // --- Offers ---
+  async getOffers(): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/api/help/search?type=OFFER`, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch offers');
+    return response.json();
   },
 
-  async createOffer(offer: Omit<HelpOffer, 'id' | 'createdAt'>): Promise<HelpOffer> {
-    await delay(400);
-    const newOffer: HelpOffer = {
-      ...offer,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    };
-    offers.push(newOffer);
-    return newOffer;
+  async createOffer(offer: { familyName: string, serviceCategory: string, description: string, status: string }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/help/offer`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(offer),
+    });
+    if (!response.ok) throw new Error('Failed to create offer');
+    return response.json();
   },
 
-  // Requests
-  async getMyRequests(familyId: string): Promise<HelpRequest[]> {
-    await delay(300);
-    return requests.filter(r => r.requesterId === familyId || r.providerId === familyId);
+  // --- Help Requests ---
+  async getHelpRequests(): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/api/help/search?type=REQUEST`, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch help requests');
+    return response.json();
   },
 
-  async createRequest(request: Omit<HelpRequest, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<HelpRequest> {
-    await delay(400);
-    const newRequest: HelpRequest = {
-      ...request,
-      id: Date.now().toString(),
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    requests.push(newRequest);
-    return newRequest;
+  async createHelpRequest(request: { familyName: string, category: string, details: string, urgent: string, status: string }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/help/request`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) throw new Error('Failed to create help request');
+    return response.json();
   },
 
-  async acceptRequest(requestId: string): Promise<HelpRequest> {
-    await delay(400);
-    const request = requests.find(r => r.id === requestId);
-    if (!request) throw new Error('Request not found');
-    request.status = 'accepted';
-    request.updatedAt = new Date().toISOString();
-    return request;
+  // --- My Activity (Combined Offers & Requests) ---
+  async getMyActivities(): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/api/help/my-activity`, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch activities');
+    return response.json();
   },
 
-  async rejectRequest(requestId: string): Promise<HelpRequest> {
-    await delay(400);
-    const request = requests.find(r => r.id === requestId);
-    if (!request) throw new Error('Request not found');
-    request.status = 'rejected';
-    request.updatedAt = new Date().toISOString();
-    return request;
+  // --- Tasks / Interactions ---
+  async acceptTask(helpId: string | number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/tasks/accept/${helpId}`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to accept task');
+    return response.json();
   },
 
-  async completeRequest(requestId: string): Promise<HelpRequest> {
-    await delay(400);
-    const request = requests.find(r => r.id === requestId);
-    if (!request) throw new Error('Request not found');
-    request.status = 'completed';
-    request.updatedAt = new Date().toISOString();
-    return request;
+  async completeTask(taskId: string | number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/complete`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to complete task');
+    return response.json();
   },
 
-  // Feedback
-  async getFeedbackForFamily(familyId: string): Promise<Feedback[]> {
-    await delay(300);
-    return feedback.filter(f => f.toFamilyId === familyId);
+  async cancelTask(taskId: string | number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/cancel`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to cancel task');
+    return response.json();
   },
 
-  async createFeedback(newFeedback: Omit<Feedback, 'id' | 'createdAt'>): Promise<Feedback> {
-    await delay(400);
-    const feedbackItem: Feedback = {
-      ...newFeedback,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    };
-    feedback.push(feedbackItem);
-
-    // Update reputation score
-    const family = families.find(f => f.id === newFeedback.toFamilyId);
-    if (family) {
-      const familyFeedback = feedback.filter(f => f.toFamilyId === family.id);
-      const avgRating = familyFeedback.reduce((sum, f) => sum + f.rating, 0) / familyFeedback.length;
-      family.reputationScore = Math.round(avgRating * 10) / 10;
-      family.totalFeedback = familyFeedback.length;
-    }
-
-    return feedbackItem;
+  // --- Feedback ---
+  async getFeedbackForFamily(familyId: string | number): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/api/feedback/family/${familyId}`, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch feedback');
+    return response.json();
   },
 
-  // Families
-  async getFamily(id: string): Promise<Family | undefined> {
-    await delay(300);
-    return families.find(f => f.id === id);
+  async createFeedback(feedback: { taskId: string, reviewerFamilyName: string, rating: number, comment: string }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/feedback/submit`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(feedback),
+    });
+    if (!response.ok) throw new Error('Failed to submit feedback');
+    return response.json();
   },
 
-  async updateFamily(id: string, updates: Partial<Family>): Promise<Family> {
-    await delay(400);
-    const family = families.find(f => f.id === id);
-    if (!family) throw new Error('Family not found');
-    Object.assign(family, updates);
-    return family;
+  // --- Rewards & Leaderboard ---
+  async getLeaderboard(): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/api/rewards/leaderboard`, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch leaderboard');
+    return response.json();
   },
 
-  // History
-  async getHistory(familyId: string): Promise<HelpRequest[]> {
-    await delay(300);
-    return requests.filter(
-      r => (r.requesterId === familyId || r.providerId === familyId) && r.status === 'completed'
-    );
-  },
-
-  // Help Request Posts
-  async getHelpRequestPosts(): Promise<HelpRequestPost[]> {
-    await delay(300);
-    return [...helpRequestPosts];
-  },
-
-  async createHelpRequestPost(post: Omit<HelpRequestPost, 'id' | 'createdAt'>): Promise<HelpRequestPost> {
-    await delay(400);
-    const newPost: HelpRequestPost = {
-      ...post,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    };
-    helpRequestPosts.push(newPost);
-    return newPost;
+  // ==========================================
+  // FAMILIES & PROFILES
+  // ==========================================
+  
+  // Uses /api/families/{familyId}
+  async getFamilyProfile(familyId: string | number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/families/${familyId}`, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch family profile');
+    return response.json();
   }
 };

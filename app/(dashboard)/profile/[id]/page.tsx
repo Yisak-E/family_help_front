@@ -67,7 +67,7 @@ export default function Profile() {
                     {family.reputationScore.toFixed(1)}
                   </span>
                   <span className="text-sm text-gray-600">
-                    ({family.totalFeedback} reviews)
+                    ({family.completedInteractions} reviews)
                   </span>
                 </div>
               </div>
@@ -79,7 +79,7 @@ export default function Profile() {
               <User className="w-5 h-5 mr-3 text-gray-400" />
               <div>
                 <p className="text-sm text-gray-500">Contact Person</p>
-                <p className="font-medium">{family.contactPerson}</p>
+                <p className="font-medium">{family.familyName}</p>
               </div>
             </div>
 
@@ -88,14 +88,6 @@ export default function Profile() {
               <div>
                 <p className="text-sm text-gray-500">Email</p>
                 <p className="font-medium">{family.email}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center text-gray-700">
-              <Phone className="w-5 h-5 mr-3 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-medium">{family.phone}</p>
               </div>
             </div>
 

@@ -3,113 +3,103 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
-import { HelpRequest } from '@/services/mockData';
 import { CheckCircle, XCircle, MessageSquare, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function MyActivities() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState<HelpRequest[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'received' | 'sent'>('received');
+  const [tab, setTab] = useState<'requests' | 'offers'>('requests');
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<HelpRequest | null>(null);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
   useEffect(() => {
-    loadRequests();
+    loadActivities();
   }, []);
 
-  const loadRequests = async () => {
+  const loadActivities = async () => {
     if (!user) return;
     try {
-      const data = await api.getMyRequests(user.id);
-      setRequests(data);
+      const data = await api.getMyActivities(); // Connects to HelpController#getMyActivity
+      setActivities(data);
     } catch (error) {
-      console.error('Failed to load requests:', error);
+      console.error('Failed to load activities:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const receivedRequests = requests.filter(r => r.providerId === user?.id);
-  const sentRequests = requests.filter(r => r.requesterId === user?.id);
+  const myRequests = activities.filter(a => a.type === 'REQUEST');
+  const myOffers = activities.filter(a => a.type === 'OFFER');
 
-  const handleAccept = async (requestId: string) => {
+  const handleComplete = async (taskId: string) => {
     try {
-      await api.acceptRequest(requestId);
-      toast.success('Request accepted!');
-      loadRequests();
+      await api.completeTask(taskId);
+      toast.success('Task marked as completed!');
+      loadActivities();
     } catch (error) {
-      toast.error('Failed to accept request');
+      toast.error('Failed to complete task');
     }
   };
 
-  const handleReject = async (requestId: string) => {
+  const handleCancel = async (taskId: string) => {
     try {
-      await api.rejectRequest(requestId);
-      toast.success('Request rejected');
-      loadRequests();
+      await api.cancelTask(taskId);
+      toast.success('Task canceled');
+      loadActivities();
     } catch (error) {
-      toast.error('Failed to reject request');
+      toast.error('Failed to cancel task');
     }
   };
 
-  const handleComplete = async (requestId: string) => {
-    try {
-      await api.completeRequest(requestId);
-      toast.success('Request marked as completed!');
-      loadRequests();
-    } catch (error) {
-      toast.error('Failed to complete request');
-    }
-  };
-
-  const handleFeedbackClick = (request: HelpRequest) => {
-    setSelectedRequest(request);
+  const handleFeedbackClick = (task: any) => {
+    setSelectedTask(task);
     setShowFeedbackModal(true);
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'accepted': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
+    switch (status?.toUpperCase()) {
+      case 'OPEN':
+      case 'AVAILABLE': return 'bg-yellow-100 text-yellow-800';
+      case 'ACCEPTED':
+      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-800';
+      case 'COMPLETED': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const displayRequests = tab === 'received' ? receivedRequests : sentRequests;
+  const displayList = tab === 'requests' ? myRequests : myOffers;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">My Activities</h1>
-        <p className="text-gray-600">Manage all your interactions - requests sent, offers received, and more</p>
+        <p className="text-gray-600">Track and manage the support you are providing and receiving</p>
       </div>
 
       <div className="bg-white rounded-lg shadow">
         <div className="border-b">
           <div className="flex">
             <button
-              onClick={() => setTab('received')}
+              onClick={() => setTab('requests')}
               className={`px-6 py-4 font-medium transition-colors ${
-                tab === 'received'
+                tab === 'requests'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Requests I Received ({receivedRequests.length})
+              My Requests ({myRequests.length})
             </button>
             <button
-              onClick={() => setTab('sent')}
+              onClick={() => setTab('offers')}
               className={`px-6 py-4 font-medium transition-colors ${
-                tab === 'sent'
+                tab === 'offers'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Requests I Sent ({sentRequests.length})
+              My Offers ({myOffers.length})
             </button>
           </div>
         </div>
@@ -117,82 +107,53 @@ export default function MyActivities() {
         <div className="p-6">
           {loading ? (
             <p className="text-gray-500 text-center py-8">Loading activities...</p>
-          ) : displayRequests.length === 0 ? (
+          ) : displayList.length === 0 ? (
             <div className="text-center py-12">
               <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">
-                {tab === 'received'
-                  ? 'No requests received yet. Check the Help Offers and Help Requests pages!'
-                  : 'No requests sent yet. Browse available help to get started!'}
-              </p>
+              <p className="text-gray-500">No activities found in this section.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {displayRequests.map(request => (
-                <div key={request.id} className="border rounded-lg p-6">
+              {displayList.map(activity => (
+                <div key={activity.id} className="border rounded-lg p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        {request.offerTitle}
+                        {activity.title || activity.description}
                       </h3>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {tab === 'received'
-                          ? `From: ${request.requesterName}`
-                          : `To: ${request.providerName}`}
+                      <p className="text-sm text-gray-600 mb-2 capitalize">
+                        Category: {activity.category}
                       </p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(request.status)}`}>
-                      {request.status}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(activity.status)}`}>
+                      {activity.status}
                     </span>
                   </div>
 
-                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-gray-700">{request.message}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-gray-500">
-                      <span>Created: {new Date(request.createdAt).toLocaleDateString()}</span>
-                      {request.updatedAt !== request.createdAt && (
-                        <span className="ml-4">
-                          Updated: {new Date(request.updatedAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-
+                  <div className="flex items-center justify-between mt-4 border-t pt-4">
                     <div className="flex gap-2">
-                      {tab === 'received' && request.status === 'pending' && (
+                      {activity.status !== 'COMPLETED' && (
                         <>
                           <button
-                            onClick={() => handleAccept(request.id)}
+                            onClick={() => handleComplete(activity.id)}
                             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center"
                           >
                             <CheckCircle className="w-4 h-4 mr-2" />
-                            Accept
+                            Mark Complete
                           </button>
                           <button
-                            onClick={() => handleReject(request.id)}
+                            onClick={() => handleCancel(activity.id)}
                             className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center"
                           >
                             <XCircle className="w-4 h-4 mr-2" />
-                            Reject
+                            Cancel
                           </button>
                         </>
                       )}
 
-                      {request.status === 'accepted' && (
+                      {activity.status === 'COMPLETED' && (
                         <button
-                          onClick={() => handleComplete(request.id)}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Mark Complete
-                        </button>
-                      )}
-
-                      {request.status === 'completed' && (
-                        <button
-                          onClick={() => handleFeedbackClick(request)}
+                          onClick={() => handleFeedbackClick(activity)}
                           className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center"
                         >
                           <Star className="w-4 h-4 mr-2" />
@@ -208,12 +169,12 @@ export default function MyActivities() {
         </div>
       </div>
 
-      {showFeedbackModal && selectedRequest && (
+      {showFeedbackModal && selectedTask && (
         <FeedbackModal
-          request={selectedRequest}
+          task={selectedTask}
           onClose={() => {
             setShowFeedbackModal(false);
-            setSelectedRequest(null);
+            setSelectedTask(null);
           }}
         />
       )}
@@ -221,7 +182,7 @@ export default function MyActivities() {
   );
 }
 
-function FeedbackModal({ request, onClose }: { request: HelpRequest; onClose: () => void }) {
+function FeedbackModal({ task, onClose }: { task: any; onClose: () => void }) {
   const { user } = useAuth();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -230,18 +191,12 @@ function FeedbackModal({ request, onClose }: { request: HelpRequest; onClose: ()
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-
-    const toFamilyId = request.requesterId === user.id ? request.providerId : request.requesterId;
-    const toFamilyName = request.requesterId === user.id ? request.providerName : request.requesterName;
-
     setLoading(true);
     try {
+      // Connects to FeedbackController#submitFeedback with the new CreateFeedbackDto
       await api.createFeedback({
-        fromFamilyId: user.id,
-        fromFamilyName: user.familyName,
-        toFamilyId,
-        toFamilyName,
-        requestId: request.id,
+        taskId: task.id.toString(),
+        reviewerFamilyName: user.familyName || '',
         rating,
         comment
       });
@@ -259,7 +214,7 @@ function FeedbackModal({ request, onClose }: { request: HelpRequest; onClose: ()
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
         <div className="p-6 border-b">
           <h2 className="text-2xl font-bold text-gray-900">Leave Feedback</h2>
-          <p className="text-gray-600 mt-1">{request.offerTitle}</p>
+          <p className="text-gray-600 mt-1">{task.title}</p>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>

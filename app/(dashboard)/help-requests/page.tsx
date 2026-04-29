@@ -3,17 +3,16 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
-import { HelpRequestPost } from '@/services/mockData';
 import { Plus, Baby, BookOpen, Car, Heart, Home, AlertCircle, Calendar, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function HelpRequestsPage() {
   const { user } = useAuth();
-  const [helpRequests, setHelpRequests] = useState<HelpRequestPost[]>([]);
+  const [helpRequests, setHelpRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<HelpRequestPost | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterUrgency, setFilterUrgency] = useState<string>('all');
 
@@ -23,7 +22,7 @@ export default function HelpRequestsPage() {
 
   const loadHelpRequests = async () => {
     try {
-      const data = await api.getHelpRequestPosts();
+      const data = await api.getHelpRequests();
       setHelpRequests(data);
     } catch (error) {
       console.error('Failed to load help requests:', error);
@@ -33,7 +32,7 @@ export default function HelpRequestsPage() {
   };
 
   const getTypeIcon = (type: string) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
       case 'childcare': return <Baby className="w-5 h-5" />;
       case 'tutoring': return <BookOpen className="w-5 h-5" />;
       case 'transport': return <Car className="w-5 h-5" />;
@@ -44,7 +43,7 @@ export default function HelpRequestsPage() {
   };
 
   const getTypeColor = (type: string) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
       case 'childcare': return 'bg-pink-100 text-pink-700';
       case 'tutoring': return 'bg-blue-100 text-blue-700';
       case 'transport': return 'bg-green-100 text-green-700';
@@ -55,7 +54,7 @@ export default function HelpRequestsPage() {
   };
 
   const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
+    switch (urgency?.toLowerCase()) {
       case 'high': return 'bg-red-100 text-red-700 border-red-200';
       case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
       case 'low': return 'bg-green-100 text-green-700 border-green-200';
@@ -71,7 +70,7 @@ export default function HelpRequestsPage() {
     filteredRequests = filteredRequests.filter(r => r.urgency === filterUrgency);
   }
 
-  const handleOfferClick = (request: HelpRequestPost) => {
+  const handleOfferClick = (request: any) => {
     setSelectedRequest(request);
     setShowOfferModal(true);
   };
@@ -85,14 +84,14 @@ export default function HelpRequestsPage() {
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center"
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center shadow-sm"
         >
           <Plus className="w-5 h-5 mr-2" />
           Post Request
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white rounded-lg shadow p-4 border border-gray-100">
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Type</label>
@@ -118,31 +117,6 @@ export default function HelpRequestsPage() {
               ))}
             </div>
           </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Urgency</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFilterUrgency('all')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  filterUrgency === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                All
-              </button>
-              {['high', 'medium', 'low'].map(urgency => (
-                <button
-                  key={urgency}
-                  onClick={() => setFilterUrgency(urgency)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors capitalize ${
-                    filterUrgency === urgency ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {urgency}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -151,11 +125,11 @@ export default function HelpRequestsPage() {
           <p className="text-gray-500">Loading help requests...</p>
         </div>
       ) : filteredRequests.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-500 mb-4">No help requests available</p>
+        <div className="bg-white rounded-lg shadow p-12 text-center border border-gray-100">
+          <p className="text-gray-500 mb-4 text-lg">No help requests available right now.</p>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            className="text-blue-600 hover:text-blue-700 font-medium underline underline-offset-4"
           >
             Be the first to post a request!
           </button>
@@ -163,7 +137,7 @@ export default function HelpRequestsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRequests.map(request => (
-            <div key={request.id} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
+            <div key={request.id} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow border border-gray-100">
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className={`p-3 rounded-lg ${getTypeColor(request.type)}`}>
@@ -177,27 +151,17 @@ export default function HelpRequestsPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{request.title}</h3>
                 <p className="text-sm text-gray-600 mb-3 line-clamp-3">{request.description}</p>
 
-                <div className="mb-4 space-y-2">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                    <span>Needed by: {request.neededBy}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <AlertCircle className="w-4 h-4 mr-2 text-gray-400" />
-                    <span>Posted: {new Date(request.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t">
+                <div className="flex items-center justify-between pt-4 border-t mt-4">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{request.familyName}</p>
                   </div>
                   <button
                     onClick={() => handleOfferClick(request)}
-                    disabled={request.familyId === user?.id}
+                    // Prevent users from offering help to their own request
+                    disabled={request.familyName === user?.familyName || request.status !== 'OPEN'}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    {request.familyId === user?.id ? 'Your Request' : 'Offer Help'}
+                    {request.familyName === user?.familyName ? 'Your Request' : 'Offer Help'}
                   </button>
                 </div>
               </div>
@@ -223,24 +187,26 @@ export default function HelpRequestsPage() {
 function CreateRequestModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    type: 'childcare' as HelpRequestPost['type'],
+    type: 'childcare',
     title: '',
     description: '',
-    urgency: 'medium' as HelpRequestPost['urgency'],
-    neededBy: ''
+    urgency: 'medium',
   });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-
     setLoading(true);
     try {
-      await api.createHelpRequestPost({
-        ...formData,
-        familyId: user.id,
-        familyName: user.familyName
+      // Clean, secure payload matched exactly to CreateRequestDto.java
+      await api.createHelpRequest({
+        familyName: user.familyName || '',
+        title: formData.title,
+        category: formData.type,
+        details: formData.description,
+        urgent: formData.urgency,
+        status: 'OPEN'
       });
       toast.success('Help request posted successfully!');
       onSuccess();
@@ -258,12 +224,12 @@ function CreateRequestModal({ onClose, onSuccess }: { onClose: () => void; onSuc
         <div className="p-6 border-b">
           <h2 className="text-2xl font-bold text-gray-900">Post Help Request</h2>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Type of Help Needed</label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as HelpRequestPost['type'] }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
             >
               <option value="childcare">Childcare</option>
@@ -298,31 +264,17 @@ function CreateRequestModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Urgency</label>
-              <select
-                value={formData.urgency}
-                onChange={(e) => setFormData(prev => ({ ...prev, urgency: e.target.value as HelpRequestPost['urgency'] }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Needed By</label>
-              <input
-                type="text"
-                value={formData.neededBy}
-                onChange={(e) => setFormData(prev => ({ ...prev, neededBy: e.target.value }))}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., May 5, 2026"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Urgency</label>
+            <select
+              value={formData.urgency}
+              onChange={(e) => setFormData(prev => ({ ...prev, urgency: e.target.value }))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -347,26 +299,16 @@ function CreateRequestModal({ onClose, onSuccess }: { onClose: () => void; onSuc
   );
 }
 
-function OfferHelpModal({ request, onClose }: { request: HelpRequestPost; onClose: () => void }) {
-  const { user } = useAuth();
-  const [message, setMessage] = useState('');
+function OfferHelpModal({ request, onClose }: { request: any; onClose: () => void }) {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
     setLoading(true);
     try {
-      await api.createRequest({
-        requesterId: request.familyId,
-        requesterName: request.familyName,
-        offerId: request.id,
-        offerTitle: request.title,
-        providerId: user.id,
-        providerName: user.familyName,
-        message
-      });
+      // Connects directly to the highly secure TaskController#acceptTask endpoint
+      await api.acceptTask(request.id);
+      
       toast.success('Your offer to help has been sent!');
       onClose();
     } catch (error) {
@@ -386,21 +328,13 @@ function OfferHelpModal({ request, onClose }: { request: HelpRequestPost; onClos
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <p className="text-sm text-gray-700 mb-2"><strong>Family:</strong> {request.familyName}</p>
-            <p className="text-sm text-gray-700 mb-2"><strong>Needed by:</strong> {request.neededBy}</p>
+            <p className="text-sm text-gray-700 mb-2"><strong>Details:</strong> {request.description}</p>
             <p className="text-sm text-gray-700"><strong>Priority:</strong> <span className="capitalize">{request.urgency}</span></p>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Your Message</label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              required
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              placeholder="Let them know how you can help and your availability..."
-            />
-          </div>
+          
+          <p className="text-gray-700 text-sm">
+            Clicking send will notify the {request.familyName} that you are available to help.
+          </p>
 
           <div className="flex justify-end gap-3 pt-4">
             <button
@@ -413,7 +347,7 @@ function OfferHelpModal({ request, onClose }: { request: HelpRequestPost; onClos
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-blue-400 flex items-center"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-blue-400 flex items-center shadow-sm"
             >
               {loading ? 'Sending...' : (
                 <>

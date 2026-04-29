@@ -2,14 +2,29 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-interface User {
+// 1. Matched perfectly to UserResponse.java
+export interface User {
   id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  gender?: string;
+  familyName?: string;
+  familyId?: string; // Added since UserResponse returns this
+  reputationScore?: number;
+  treesPlanted?: number; // Added since UserResponse returns this
+}
+
+// 2. Must match the fields in SignupRequest.java exactly!
+export interface RegisterData {
+  firstName: string;
+  lastName: string;
   familyName: string;
   email: string;
-  contactPerson: string;
-  phone: string;
-  address: string;
-  reputationScore: number;
+  password: string;
+  familySize: number; // Changed from 'size' to match backend DTO
+  address: string; // Added to match backend DTO
+  role: string; // Ensure this matches backend (e.g., "MEMBER")
 }
 
 interface AuthContextType {
@@ -21,24 +36,16 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
-interface RegisterData {
-  familyName: string;
-  email: string;
-  password: string;
-  contactPerson: string;
-  phone: string;
-  address: string;
-}
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// 3. Updated to the standard Spring Boot port 8080
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Wrap localStorage in a try-catch just in case it's accessed in a weird environment, 
-    // though the useEffect ensures it only runs on the client.
     try {
       const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
@@ -52,45 +59,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-    const mockToken = 'mock_jwt_token_' + Date.now();
-    const mockUser: User = {
-      id: '1',
-      familyName: 'Smith Family',
-      email,
-      contactPerson: 'John Smith',
-      phone: '+971-50-123-4567',
-      address: 'Dubai Marina, Dubai',
-      reputationScore: 4.5
-    };
+    if (!response.ok) {
+      throw new Error('Invalid credentials');
+    }
 
-    setToken(mockToken);
-    setUser(mockUser);
-    localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(mockUser));
+    // 4. FIX: Backend returns a flat object, so `data` IS the user + token
+    const data = await response.json();
+    
+    setToken(data.token);
+    setUser(data); // Removed data.user
+    
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data)); // Store the whole flat object
   };
 
   const register = async (data: RegisterData) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // 5. FIX: Match the AuthController endpoint
+    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
 
-    const mockToken = 'mock_jwt_token_' + Date.now();
-    const mockUser: User = {
-      id: Date.now().toString(),
-      familyName: data.familyName,
-      email: data.email,
-      contactPerson: data.contactPerson,
-      phone: data.phone,
-      address: data.address,
-      reputationScore: 0
-    };
+    if (!response.ok) {
+      throw new Error('Registration failed');
+    }
 
-    setToken(mockToken);
-    setUser(mockUser);
-    localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(mockUser));
+    // 6. FIX: Backend returns a flat object for signup as well
+    const dataResponse = await response.json();
+    
+    setToken(dataResponse.token);
+    setUser(dataResponse); 
+    
+    localStorage.setItem('token', dataResponse.token);
+    localStorage.setItem('user', JSON.stringify(dataResponse));
   };
 
   const logout = () => {
