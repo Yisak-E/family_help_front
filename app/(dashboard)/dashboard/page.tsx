@@ -106,7 +106,7 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-4">
                 {activities.slice(0, 5).map(activity => (
-                  <div key={activity.id} className="border rounded-lg p-4">
+                  <div key={`${activity.type}-${activity.id}`} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-medium text-gray-900">[{activity.type}] {activity.title || activity.category}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>

@@ -2,29 +2,29 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// 1. Matched perfectly to UserResponse.java
+// Matches UserResponse.java
 export interface User {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  gender?: string;
+  role: string;
+  token: string;
+  familyId?: string;
   familyName?: string;
-  familyId?: string; // Added since UserResponse returns this
   reputationScore?: number;
-  treesPlanted?: number; // Added since UserResponse returns this
 }
 
-// 2. Must match the fields in SignupRequest.java exactly!
+// Matches SignupRequest.java
 export interface RegisterData {
   firstName: string;
   lastName: string;
-  familyName: string;
   email: string;
   password: string;
-  familySize: number; // Changed from 'size' to match backend DTO
-  address: string; // Added to match backend DTO
-  role: string; // Ensure this matches backend (e.g., "MEMBER")
+  role: string;
+  familyName: string;
+  address: string;
+  familySize: number;
 }
 
 interface AuthContextType {
@@ -37,9 +37,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// 3. Updated to the standard Spring Boot port 8080
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:8443/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -59,44 +57,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
-    if (!response.ok) {
-      throw new Error('Invalid credentials');
-    }
-
-    // 4. FIX: Backend returns a flat object, so `data` IS the user + token
+    if (!response.ok) throw new Error('Invalid credentials');
     const data = await response.json();
-    
     setToken(data.token);
-    setUser(data); // Removed data.user
-    
+    setUser(data);
     localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data)); // Store the whole flat object
+    localStorage.setItem('user', JSON.stringify(data));
   };
 
   const register = async (data: RegisterData) => {
-    // 5. FIX: Match the AuthController endpoint
-    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
 
-    if (!response.ok) {
-      throw new Error('Registration failed');
-    }
-
-    // 6. FIX: Backend returns a flat object for signup as well
+    if (!response.ok) throw new Error('Registration failed');
     const dataResponse = await response.json();
-    
     setToken(dataResponse.token);
-    setUser(dataResponse); 
-    
+    setUser(dataResponse);
     localStorage.setItem('token', dataResponse.token);
     localStorage.setItem('user', JSON.stringify(dataResponse));
   };
@@ -117,8 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

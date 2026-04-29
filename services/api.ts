@@ -1,4 +1,3 @@
-// services/api.ts
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:8443';
 
 const getHeaders = () => {
@@ -10,41 +9,27 @@ const getHeaders = () => {
 };
 
 export const api = {
-  // --- Offers ---
-  async getOffers(): Promise<any[]> {
-    const response = await fetch(`${API_BASE_URL}/api/help/search?type=OFFER`, { headers: getHeaders() });
-    if (!response.ok) throw new Error('Failed to fetch offers');
+  // --- Community Posts ---
+  async getPosts(postType?: string): Promise<any[]> {
+    const url = postType && postType !== 'ALL'
+      ? `${API_BASE_URL}/api/help/posts?type=${postType}`
+      : `${API_BASE_URL}/api/help/posts`;
+      
+    const response = await fetch(url, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch posts');
     return response.json();
   },
 
-  async createOffer(offer: { familyName: string, serviceCategory: string, description: string, status: string }): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/api/help/offer`, {
+  async createPost(postData: any): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/help/posts`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(offer),
+      body: JSON.stringify(postData),
     });
-    if (!response.ok) throw new Error('Failed to create offer');
+    if (!response.ok) throw new Error('Failed to create post');
     return response.json();
   },
 
-  // --- Help Requests ---
-  async getHelpRequests(): Promise<any[]> {
-    const response = await fetch(`${API_BASE_URL}/api/help/search?type=REQUEST`, { headers: getHeaders() });
-    if (!response.ok) throw new Error('Failed to fetch help requests');
-    return response.json();
-  },
-
-  async createHelpRequest(request: { familyName: string, category: string, details: string, urgent: string, status: string }): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/api/help/request`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(request),
-    });
-    if (!response.ok) throw new Error('Failed to create help request');
-    return response.json();
-  },
-
-  // --- My Activity (Combined Offers & Requests) ---
   async getMyActivities(): Promise<any[]> {
     const response = await fetch(`${API_BASE_URL}/api/help/my-activity`, { headers: getHeaders() });
     if (!response.ok) throw new Error('Failed to fetch activities');
@@ -52,29 +37,20 @@ export const api = {
   },
 
   // --- Tasks / Interactions ---
-  async acceptTask(helpId: string | number): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/api/tasks/accept/${helpId}`, {
-      method: 'POST',
-      headers: getHeaders(),
-    });
+  async acceptTask(postId: string | number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/tasks/accept/${postId}`, { method: 'POST', headers: getHeaders() });
     if (!response.ok) throw new Error('Failed to accept task');
     return response.json();
   },
 
   async completeTask(taskId: string | number): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/complete`, {
-      method: 'PATCH',
-      headers: getHeaders(),
-    });
+    const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/complete`, { method: 'PATCH', headers: getHeaders() });
     if (!response.ok) throw new Error('Failed to complete task');
     return response.json();
   },
 
   async cancelTask(taskId: string | number): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/cancel`, {
-      method: 'PATCH',
-      headers: getHeaders(),
-    });
+    const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/cancel`, { method: 'PATCH', headers: getHeaders() });
     if (!response.ok) throw new Error('Failed to cancel task');
     return response.json();
   },
@@ -86,31 +62,13 @@ export const api = {
     return response.json();
   },
 
-  async createFeedback(feedback: { taskId: string, reviewerFamilyName: string, rating: number, comment: string }): Promise<any> {
+  async createFeedback(feedback: { postId: number; rating: number; comment: string }): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/api/feedback/submit`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(feedback),
     });
     if (!response.ok) throw new Error('Failed to submit feedback');
-    return response.json();
-  },
-
-  // --- Rewards & Leaderboard ---
-  async getLeaderboard(): Promise<any[]> {
-    const response = await fetch(`${API_BASE_URL}/api/rewards/leaderboard`, { headers: getHeaders() });
-    if (!response.ok) throw new Error('Failed to fetch leaderboard');
-    return response.json();
-  },
-
-  // ==========================================
-  // FAMILIES & PROFILES
-  // ==========================================
-  
-  // Uses /api/families/{familyId}
-  async getFamilyProfile(familyId: string | number): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/api/families/${familyId}`, { headers: getHeaders() });
-    if (!response.ok) throw new Error('Failed to fetch family profile');
     return response.json();
   }
 };

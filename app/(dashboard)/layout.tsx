@@ -38,11 +38,11 @@ export default function DashboardLayout({
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
-    { path: '/offers', label: 'Help Offers', icon: Users },
-    { path: '/help-requests', label: 'Help Requests', icon: HandHeart },
+    { path: '/communityPost', label: 'Community Feed', icon: Users },
     { path: '/activities', label: 'My Activities', icon: FileText },
     { path: '/history', label: 'History', icon: History }
   ];
+
 
   const isActive = (path: string) => pathname === path;
 
