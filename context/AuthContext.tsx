@@ -1,106 +1,86 @@
-"use client";
+'use client';
+// context/AuthContext.tsx
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  authApi,
+  setTokens,
+  clearTokens,
+  getAccessToken,
+  getFamilyId,
+  RegisterRequest,
+  LoginRequest,
+  AuthResponse,
+} from '@/services/api';
 
-// Matches UserResponse.java
-export interface User {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: string;
-  token: string;
-  familyId?: string;
-  familyName?: string;
-  reputationScore?: number;
-}
-// Matches SignupRequest.java
-export interface RegisterData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  role: string;
+interface AuthUser {
+  familyId: string;
   familyName: string;
-  address: string;
-  familySize: number;
+  accessToken: string;
 }
 
-interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+interface AuthContextValue {
+  user: AuthUser | null;
+  loading: boolean;
+  login: (body: LoginRequest) => Promise<void>;
+  register: (body: RegisterRequest) => Promise<void>;
   logout: () => void;
-  isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:8443/api';
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  // Rehydrate from localStorage on mount
   useEffect(() => {
-    try {
-      const storedToken = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Error accessing localStorage", error);
+    const token = getAccessToken();
+    const familyId = getFamilyId();
+    const familyName = localStorage.getItem('familyName');
+    if (token && familyId && familyName) {
+      setUser({ familyId, familyName, accessToken: token });
     }
+    setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+  const handleAuthResponse = useCallback((data: AuthResponse) => {
+    setTokens(data.accessToken);
+    localStorage.setItem('familyId', data.familyId);
+    localStorage.setItem('familyName', data.familyName);
+    setUser({
+      familyId: data.familyId,
+      familyName: data.familyName,
+      accessToken: data.accessToken,
     });
+  }, []);
 
-    if (!response.ok) throw new Error('Invalid credentials');
-    const data = await response.json();
-    setToken(data.token);
-    setUser(data);
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data));
-  };
+  const login = useCallback(async (body: LoginRequest) => {
+    const data = await authApi.login(body);
+    console.log('Login response:', data);
+    handleAuthResponse(data);
+  }, [handleAuthResponse]);
 
-  const register = async (data: RegisterData) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
+  const register = useCallback(async (body: RegisterRequest) => {
+    const data = await authApi.register(body);
+    handleAuthResponse(data);
+  }, [handleAuthResponse]);
 
-    if (!response.ok) throw new Error('Registration failed');
-    const dataResponse = await response.json();
-    setToken(dataResponse.token);
-    setUser(dataResponse);
-    localStorage.setItem('token', dataResponse.token);
-    localStorage.setItem('user', JSON.stringify(dataResponse));
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
+    clearTokens();
+    localStorage.removeItem('familyName');
     setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-  };
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }
