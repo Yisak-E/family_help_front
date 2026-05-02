@@ -2,14 +2,14 @@
 // Central API client for FamilyHelpUAE Spring Boot backend
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8443/api';
-
+import { AuthResponse, LoginRequest, RegisterRequest, LeaderboardResponse } from './types';
 // ─────────────────────────────────────────────
 // Token helpers
 // ─────────────────────────────────────────────
 export function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null;
   return localStorage.getItem('accessToken');
 }
+
 
 export function getRefreshToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -53,7 +53,7 @@ async function request<T>(
     const refreshed = await tryRefresh();
     if (refreshed) return request<T>(path, options, false);
     clearTokens();
-    window.location.href = '/login';
+    window.location.href = '/';
     throw new Error('Session expired');
   }
 
@@ -64,50 +64,24 @@ async function request<T>(
 
   // 204 No Content
   if (res.status === 204) return undefined as unknown as T;
-  return res.json();
-}
 
-async function tryRefresh(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
+  // Some endpoints may return an empty body with 200 OK (dev servers, health checks, etc.).
+  // Safely read text first and only parse JSON when content exists.
+  const text = await res.text();
+  if (!text) return undefined as unknown as T;
   try {
-    const data: AuthResponse = await request<AuthResponse>(
-      '/auth/refresh',
-      { method: 'POST', body: JSON.stringify({ refreshToken }) },
-      false
-    );
-    setTokens(data.accessToken, data.refreshToken);
-    return true;
-  } catch {
-    return false;
+    return JSON.parse(text) as T;
+  } catch (e) {
+    // Fall back to res.json() to preserve original behavior if parsing fails
+    return res.json();
   }
 }
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  familyId: string;
-  familyName: string;
+async function tryRefresh(): Promise<boolean> {
+  // Refresh endpoint not available on backend — skip refresh and force login
+  return false;
 }
 
-export interface RegisterRequest {
-  firstName: string;
-  lastName: string;
-  role:string;
-  familyName: string;
-  email: string;
-  password: string;
-  address?: string;
-  familySize: number;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
 
 export interface FamilyProfile {
   id: string;
@@ -115,7 +89,7 @@ export interface FamilyProfile {
   email: string;
   phoneNumber?: string;
   address?: string;
-  reputationScore?: number;
+  trustScore?: number;
   createdAt?: string;
 }
 
@@ -151,6 +125,16 @@ export interface CreateOfferRequest {
   urgency?: string;
 }
 
+// CreatePostDto (backend) mapping — frontend should send ISO datetime for `neededBy`
+export interface CreatePostRequest {
+  postType: 'OFFER' | 'SEEK' | string;
+  title: string;
+  category: ServiceCategory;
+  description: string;
+  urgency?: string;
+  neededBy?: string; // ISO datetime string
+}
+
 export type RequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED';
 
 export interface HelpRequest {
@@ -173,40 +157,36 @@ export interface CreateRequestRequest {
 
 export interface Feedback {
   id: string;
-  fromFamilyId: string;
+  fromFamilyId?: string;
   fromFamilyName?: string;
-  toFamilyId: string;
-  requestId: string;
+  postId?: number;
   rating: number;
-  comment?: string;
+  comment: string;
   createdAt?: string;
 }
 
 export interface CreateFeedbackRequest {
-  toFamilyId: string;
-  requestId: string;
+  postId: number;
   rating: number;
-  comment?: string;
+  comment: string;
 }
 
-export interface ReputationResponse {
-  familyId: string;
-  familyName: string;
-  reputationScore: number;
-  totalFeedbacks: number;
-  averageRating: number;
-}
+
 
 export interface HistoryEntry {
-  id: string;
-  type: 'OFFERED' | 'REQUESTED';
-  category: ServiceCategory;
+  id: number;
+  type: string; // OFFER or REQUEST
+  category: string;
   title: string;
-  status: RequestStatus;
-  partnerFamilyName?: string;
+  description?: string;
+  status: string;
+  urgency?: string;
   createdAt?: string;
-  completedAt?: string;
 }
+
+
+
+
 
 // ─────────────────────────────────────────────
 // Auth API  –  POST /api/auth/*
@@ -224,8 +204,9 @@ export const authApi = {
       body: JSON.stringify(body),
     }),
 
+  // Backend uses a misspelled 'refress' endpoint
   refresh: (refreshToken: string) =>
-    request<AuthResponse>('/auth/refresh', {
+    request<AuthResponse>('/auth/refress', {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
     }),
@@ -244,20 +225,71 @@ export const familiesApi = {
       body: JSON.stringify(body),
     }),
 
-  getReputation: (id: string) =>
-    request<ReputationResponse>(`/families/${id}/reputation`),
 
-  getHistory: (id: string) =>
-    request<HistoryEntry[]>(`/families/${id}/history`),
+
+  // Backend provides a user-scoped activity endpoint
+  getHistory: (_id?: string) =>
+    request<HistoryEntry[]>(`/help/my-activity`),
 };
 
 // ─────────────────────────────────────────────
-// Offers API  –  /api/offers
+// Rewards / Leaderboard API – /api/rewards
+// ─────────────────────────────────────────────
+export const rewardsApi = {
+  getLeaderboard: () =>
+    request<LeaderboardResponse[]>('/rewards/leaderboard'),
+
+  getMine: (id: string | number) =>
+    request<LeaderboardResponse>(`/rewards/mine/${id}`),
+};
+
+// ─────────────────────────────────────────────
+// Calendar API
+// ─────────────────────────────────────────────
+export interface CalendarEvent {
+  postId: number;
+  title: string;
+  category: string;
+  scheduledTime: string; // ISO datetime
+  status: string;
+  role: 'HELPER' | 'RECEIVER' | string;
+  otherFamilyName?: string;
+}
+
+export const calendarApi = {
+  getWeekly: () => request<CalendarEvent[]>('/calendar/weekly'),
+};
+
+// ─────────────────────────────────────────────
+// Tasks API
+// ─────────────────────────────────────────────
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  createdAt?: string;
+  completed?: boolean;
+}
+
+export interface CreateTaskRequest {
+  title: string;
+  description?: string;
+}
+
+export const tasksApi = {
+  createTask: (body: CreateTaskRequest) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(body) }),
+  getCommunityFeed: () => request<Task[]>('/tasks/feed'),
+  getTaskById: (taskId: string) => request<Task>(`/tasks/${taskId}`),
+  completeTask: (taskId: string) => request<void>(`/tasks/${taskId}/complete`, { method: 'PATCH' }),
+};
+
+// ─────────────────────────────────────────────
+// Offers API  –  /api/help/posts
 // ─────────────────────────────────────────────
 export const offersApi = {
   list: (category?: ServiceCategory) => {
     const qs = category ? `?category=${category}` : '';
-    return request<Offer[]>(`/offers${qs}`);
+    return request<Offer[]>(`/help/posts${qs}`);
   },
 
   create: (body: CreateOfferRequest) =>
@@ -271,29 +303,39 @@ export const offersApi = {
 // Requests API  –  /api/requests
 // ─────────────────────────────────────────────
 export const requestsApi = {
+  // Apply to a post (creates an application)
   create: (body: CreateRequestRequest) =>
-    request<HelpRequest>('/requests', {
+    request<HelpRequest>(`/applications/apply/${body.offerId}`, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ message: body.message }),
     }),
 
+  // Accept an application
   accept: (id: string) =>
-    request<HelpRequest>(`/requests/${id}/accept`, { method: 'POST' }),
+    request<HelpRequest>(`/applications/${id}/accept`, { method: 'PATCH' }),
 
+  // Reject / cancel an application
   reject: (id: string) =>
-    request<HelpRequest>(`/requests/${id}/reject`, { method: 'POST' }),
+    request<void>(`/applications/${id}/cancel`, { method: 'DELETE' }),
 
+  // Complete action — backend has no explicit applications/complete endpoint in the list;
+  // map to accept as a placeholder (adjust if you have a dedicated complete endpoint).
   complete: (id: string) =>
-    request<HelpRequest>(`/requests/${id}/complete`, { method: 'POST' }),
+    request<HelpRequest>(`/applications/${id}/accept`, { method: 'PATCH' }),
+
+  // Utility: list applicants for a post
+  getApplicantsForPost: (postId: string) =>
+    request<HelpRequest[]>(`/applications/post/${postId}`),
 };
 
 // ─────────────────────────────────────────────
 // Feedback API  –  /api/feedback
 // ─────────────────────────────────────────────
 export const feedbackApi = {
+  // Backend expects postId in path: /api/feedback/submit/{postId}
   submit: (body: CreateFeedbackRequest) =>
-    request<Feedback>('/feedback', {
+    request<Feedback>(`/feedback/submit/${body.postId}`, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ rating: body.rating, comment: body.comment }),
     }),
 };

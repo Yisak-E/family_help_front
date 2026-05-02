@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/context/AuthContext';
-import { familiesApi, offersApi, ReputationResponse, Offer } from '@/services/api';
+import { familiesApi, offersApi, LeaderboardResponse, Offer, rewardsApi } from '@/services/api';
 import CategoryBadge from '@/components/CategoryBadge';
 import StarRating from '@/components/StarRating';
 
@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [reputation, setReputation] = useState<ReputationResponse | null>(null);
+  const [reputation, setReputation] = useState<LeaderboardResponse | null>(null);
   const [recentOffers, setRecentOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +25,7 @@ export default function DashboardPage() {
     }
     if (user) {
       Promise.all([
-        familiesApi.getReputation(user.familyId),
+        rewardsApi.getMine(user.familyId),
         offersApi.list(),
       ])
         .then(([rep, offers]) => {
@@ -66,24 +66,24 @@ export default function DashboardPage() {
           <div className="card card-body text-center">
             <div style={{ fontSize: '2rem', marginBottom: 6 }}>⭐</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--teal-600)' }}>
-              {reputation?.reputationScore?.toFixed(1) ?? '–'}
+              {reputation?.trustScore?.toFixed(1) ?? '–'}
             </div>
-            <div className="text-sm text-muted">Reputation Score</div>
+            <div className="text-sm text-muted">Trust Score</div>
           </div>
           <div className="card card-body text-center">
             <div style={{ fontSize: '2rem', marginBottom: 6 }}>💬</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--teal-600)' }}>
-              {reputation?.totalFeedbacks ?? 0}
+              {reputation?.completedInteractions ?? 0}
             </div>
-            <div className="text-sm text-muted">Total Feedbacks</div>
+            <div className="text-sm text-muted">Completed Interactions</div>
           </div>
           <div className="card card-body text-center">
             <div style={{ fontSize: '2rem', marginBottom: 6 }}>📊</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--teal-600)' }}>
-              {reputation?.averageRating?.toFixed(1) ?? '–'}
+              {reputation ? (reputation.trustScore > 0 ? (reputation.trustScore / 2).toFixed(1) : '–') : '–'}
             </div>
-            <div className="text-sm text-muted">Average Rating</div>
-            {reputation && <StarRating value={Math.round(reputation.averageRating)} />}
+            <div className="text-sm text-muted">Derived Rating</div>
+            {reputation && <StarRating value={Math.round((reputation.trustScore || 0) / 2)} />}
           </div>
         </div>
 

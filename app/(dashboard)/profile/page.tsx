@@ -1,13 +1,13 @@
 'use client';
 // app/profile/page.tsx
-// Covers: GET /api/families/{id}, PUT /api/families/{id}, GET /api/families/{id}/reputation
+// Covers: GET /api/families/{id}, PUT /api/families/{id}, GET /api/rewards/getMine/{id}
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/context/AuthContext';
 import {
-  familiesApi, FamilyProfile, ReputationResponse, UpdateProfileRequest,
+  familiesApi, FamilyProfile, LeaderboardResponse, UpdateProfileRequest, rewardsApi,
 } from '@/services/api';
 import StarRating from '@/components/StarRating';
 
@@ -16,7 +16,7 @@ export default function ProfilePage() {
   const router = useRouter();
 
   const [profile, setProfile]         = useState<FamilyProfile | null>(null);
-  const [reputation, setReputation]   = useState<ReputationResponse | null>(null);
+  const [reputation, setReputation]   = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading]         = useState(true);
   const [editing, setEditing]         = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -34,7 +34,7 @@ export default function ProfilePage() {
     if (user) {
       Promise.all([
         familiesApi.getProfile(user.familyId),
-        familiesApi.getReputation(user.familyId),
+        rewardsApi.getMine(user.familyId),
       ])
         .then(([p, r]) => {
           setProfile(p);
@@ -88,7 +88,7 @@ export default function ProfilePage() {
       <div className="page-header">
         <div className="container">
           <h1>👤 Family Profile</h1>
-          <p>Manage your account details and reputation.</p>
+          <p>Manage your account details and trust score.</p>
         </div>
       </div>
 
@@ -106,23 +106,23 @@ export default function ProfilePage() {
           <div className="card mb-6" style={{ background: 'linear-gradient(135deg, var(--teal-800), var(--teal-600))', color: 'white' }}>
             <div className="card-body">
               <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 16 }}>
-                <div>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: 4 }}>
-                    Community Reputation
-                  </h2>
-                  <p style={{ opacity: .8, fontSize: '.9rem' }}>
-                    Based on {reputation.totalFeedbacks} feedback{reputation.totalFeedbacks !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '3rem', lineHeight: 1 }}>
-                    {reputation.reputationScore.toFixed(1)}
-                  </div>
-                  <StarRating value={Math.round(reputation.averageRating)} />
-                  <div style={{ fontSize: '.8rem', opacity: .7, marginTop: 4 }}>
-                    avg {reputation.averageRating.toFixed(1)} / 5
-                  </div>
-                </div>
+                        <div>
+                          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: 4 }}>
+                            Trust Score
+                          </h2>
+                          <p style={{ opacity: .8, fontSize: '.9rem' }}>
+                            Completed interactions: {reputation.completedInteractions}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: '3rem', lineHeight: 1 }}>
+                            {reputation.trustScore.toFixed(1)}
+                          </div>
+                          <StarRating value={Math.round(reputation.trustScore / 2)} />
+                          <div style={{ fontSize: '.8rem', opacity: .7, marginTop: 4 }}>
+                            Last active: {reputation.lastActive ? new Date(reputation.lastActive).toLocaleString() : '—'}
+                          </div>
+                        </div>
               </div>
             </div>
           </div>

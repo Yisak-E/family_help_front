@@ -7,14 +7,13 @@ import {
   setTokens,
   clearTokens,
   getAccessToken,
-  getFamilyId,
-  RegisterRequest,
-  LoginRequest,
-  AuthResponse,
+  getFamilyId
 } from '@/services/api';
 
+import { LoginRequest,RegisterRequest, AuthResponse  } from '@/services/types';
+
 interface AuthUser {
-  familyId: string;
+  familyId: String;
   familyName: string;
   accessToken: string;
 }
@@ -45,13 +44,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleAuthResponse = useCallback((data: AuthResponse) => {
-    setTokens(data.accessToken);
-    localStorage.setItem('familyId', data.familyId);
+    // Only persist tokens when present and valid
+    if (data.accessToken && data.refreshToken) {
+      setTokens(data.accessToken, data.refreshToken);
+    }
+    localStorage.setItem('familyId', String(data.familyId));
     localStorage.setItem('familyName', data.familyName);
     setUser({
-      familyId: data.familyId,
+      familyId: String(data.familyId),
       familyName: data.familyName,
-      accessToken: data.accessToken,
+      accessToken: data.accessToken || '',
     });
   }, []);
 

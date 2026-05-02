@@ -1,7 +1,7 @@
 'use client';
 // app/requests/page.tsx
-// Covers: GET /api/families/{id}/history (pending requests), POST /api/requests/{id}/accept,
-//         POST /api/requests/{id}/reject, POST /api/requests/{id}/complete, POST /api/feedback
+// Covers: GET /api/help/my-activity (pending requests), PATCH /api/applications/{id}/accept,
+//         DELETE /api/applications/{id}/cancel, POST /api/feedback/submit/{postId}
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -27,41 +27,29 @@ export default function RequestsPage() {
 
   // Feedback modal
   const [feedbackTarget, setFeedbackTarget] = useState<HelpRequest | null>(null);
-  const [feedbackForm, setFeedbackForm] = useState<Omit<CreateFeedbackRequest, 'toFamilyId' | 'requestId'>>({
+  const [feedbackForm, setFeedbackForm] = useState<Omit<CreateFeedbackRequest, 'postId'>>({
     rating: 5, comment: '',
   });
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackError, setFeedbackError]     = useState('');
 
-  const load = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const history = await familiesApi.getHistory(user.familyId);
-      // Map history entries to HelpRequest shape so we can use them
-      const mapped = history.map((h): HelpRequest => ({
-        id: h.id,
-        requesterFamilyId: user.familyId,
-        status: h.status,
-        offerId: '',
-        offerTitle: h.title,
-        category: h.category,
-        createdAt: h.createdAt,
-        updatedAt: h.completedAt,
-        requesterFamilyName: user.familyName,
-      }));
-      setRequests(mapped);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  // const load = useCallback(async () => {
+  //   if (!user) return;
+  //   setLoading(true);
+  //   try {
+      
+  //     setRequests(mapped);
+  //   } catch (e) {
+  //     console.error(e);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [user]);
 
   useEffect(() => {
-    if (!authLoading && !user) { router.replace('/login'); return; }
-    if (user) load();
-  }, [user, authLoading, router, load]);
+    if (!authLoading && !user) { router.replace('/'); return; }
+    //if (user) load();
+  }, [user, authLoading, router,/**load */ ]);
 
   async function doAction(id: string, action: 'accept' | 'reject' | 'complete') {
     setActionLoading(id + action);
@@ -71,7 +59,7 @@ export default function RequestsPage() {
       if (action === 'reject')   await requestsApi.reject(id);
       if (action === 'complete') await requestsApi.complete(id);
       setSuccessMsg(`Request ${action}ed successfully.`);
-      load();
+      // load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Action failed');
     } finally {
@@ -85,12 +73,9 @@ export default function RequestsPage() {
     setFeedbackLoading(true);
     try {
       await feedbackApi.submit({
-        toFamilyId: feedbackTarget.requesterFamilyId !== user.familyId
-          ? feedbackTarget.requesterFamilyId
-          : user.familyId,
-        requestId: feedbackTarget.id,
+        postId: Number(feedbackTarget.id),
         rating: feedbackForm.rating,
-        comment: feedbackForm.comment || undefined,
+        comment: feedbackForm.comment,
       });
       setFeedbackTarget(null);
       setFeedbackForm({ rating: 5, comment: '' });

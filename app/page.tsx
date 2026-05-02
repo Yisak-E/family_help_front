@@ -52,7 +52,7 @@ export default function LoginPage() {
         <div className="auth-feature">
           <span className="icon">⭐</span>
           <div className="auth-feature-text">
-            <h4>Reputation System</h4>
+            <h4>Trust System</h4>
             <p>Build trust through verified community interactions.</p>
           </div>
         </div>

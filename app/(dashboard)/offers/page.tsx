@@ -1,6 +1,6 @@
 'use client';
 // app/offers/page.tsx
-// Covers:  GET /api/offers, POST /api/offers, POST /api/requests
+// Covers:  GET /api/help/posts, POST /api/help/posts, POST /api/applications/apply/{postId}
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,7 +8,7 @@ import Navbar from '@/components/Navbar';
 import { useAuth } from '@/context/AuthContext';
 import {
   offersApi, requestsApi,
-  Offer, ServiceCategory, CreateOfferRequest,
+  Offer, ServiceCategory, CreatePostRequest,
 } from '@/services/api';
 import CategoryBadge from '@/components/CategoryBadge';
 
@@ -35,14 +35,14 @@ export default function OffersPage() {
   const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1');
   const [showRequest, setShowRequest] = useState<Offer | null>(null);
 
-  // Create offer form
-  const [offerForm, setOfferForm] = useState<CreateOfferRequest>({
+  // Create offer form (maps to CreatePostRequest)
+  const [offerForm, setOfferForm] = useState<CreatePostRequest>({
     postType: 'OFFER',
     category: 'CHILDCARE',
     title: '',
     description: '',
     urgency: '',
-
+    neededBy: '',
   });
   const [offerError, setOfferError]   = useState('');
   const [offerLoading, setOfferLoading] = useState(false);
@@ -76,9 +76,14 @@ export default function OffersPage() {
     setOfferError('');
     setOfferLoading(true);
     try {
-      await offersApi.create(offerForm);
+      // Ensure neededBy is ISO before sending
+      const payload: CreatePostRequest = {
+        ...offerForm,
+        neededBy: offerForm.neededBy ? new Date(offerForm.neededBy).toISOString() : undefined,
+      };
+      await offersApi.create(payload);
       setShowCreate(false);
-      setOfferForm({ postType: 'OFFER', category: 'CHILDCARE', title: '', description: '', urgency: '' });
+      setOfferForm({ postType: 'OFFER', category: 'CHILDCARE', title: '', description: '', urgency: '', neededBy: '' });
       setSuccessMsg('Offer posted successfully! 🎉');
       fetchOffers();
     } catch (err: unknown) {
@@ -236,6 +241,15 @@ export default function OffersPage() {
                   placeholder="e.g. Immediate, Within 24 hours"
                   value={offerForm.urgency}
                   onChange={e => setOfferForm(f => ({ ...f, urgency: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Needed By (optional)</label>
+                <input
+                  type="datetime-local"
+                  className="form-input"
+                  value={offerForm.neededBy || ''}
+                  onChange={e => setOfferForm(f => ({ ...f, neededBy: e.target.value }))}
                 />
               </div>
               <div className="flex gap-3">
