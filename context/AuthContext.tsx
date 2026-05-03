@@ -13,7 +13,7 @@ import {
 import { LoginRequest,RegisterRequest, AuthResponse  } from '@/services/types';
 
 interface AuthUser {
-  familyId: String;
+  familyId: string;
   familyName: string;
   accessToken: string;
 }

@@ -13,10 +13,12 @@ import {
 import CategoryBadge from '@/components/CategoryBadge';
 
 const CATEGORIES: ServiceCategory[] = [
-  'CHILDCARE', 'TUTORING', 'TRANSPORTATION', 'ELDER_CARE', 'HOUSEHOLD',
+'SHOPPING', "CHILDCARE", 'TUTORING', 'TRANSPORTATION', 'ELDER_CARE', 'HOUSEHOLD',
 ];
 
 const CATEGORY_LABELS: Record<ServiceCategory, string> = {
+  SHOPPING: 'Shopping',
+  PETTING:'petting',
   CHILDCARE: 'Childcare',
   TUTORING: 'Tutoring',
   TRANSPORTATION: 'Transportation',
@@ -43,6 +45,7 @@ export default function OffersPage() {
     description: '',
     urgency: '',
     neededBy: '',
+    
   });
   const [offerError, setOfferError]   = useState('');
   const [offerLoading, setOfferLoading] = useState(false);
@@ -166,19 +169,20 @@ export default function OffersPage() {
                 <div className="card-body">
                   <div className="flex justify-between items-center mb-2">
                     <CategoryBadge category={offer.category} />
+                    <p>{offer.category}</p>
                   </div>
                   <h3 className="font-semibold text-lg" style={{ marginBottom: 6 }}>{offer.title}</h3>
                   <p className="text-sm text-muted" style={{ marginBottom: 12 }}>{offer.description}</p>
-                  {offer.familyName && (
+                  {offer.family?.familyName && (
                     <p className="text-sm font-semibold" style={{ color: 'var(--teal-600)', marginBottom: 4 }}>
-                      👨‍👩‍👧 {offer.familyName}
+                      👨‍👩‍👧 {offer.family.familyName}
                     </p>
                   )}
                   {offer.urgency && (
                     <p className="text-sm text-muted">🕐 {offer.urgency}</p>
                   )}
                   <div className="divider" />
-                  {offer.familyId !== user?.familyId ? (
+                  {offer.family?.familyName !== user?.familyName ? (
                     <button
                       className="btn btn-primary btn-full btn-sm"
                       onClick={() => setShowRequest(offer)}
@@ -274,7 +278,7 @@ export default function OffersPage() {
               <div className="card-body">
                 <CategoryBadge category={showRequest.category} />
                 <h3 className="font-semibold mt-2">{showRequest.title}</h3>
-                {showRequest.familyName && <p className="text-sm text-muted">by {showRequest.familyName}</p>}
+                {showRequest.family?.familyName && <p className="text-sm text-muted">by {showRequest.family.familyName}</p>}
               </div>
             </div>
             {requestError && <div className="alert alert-error mb-4">{requestError}</div>}

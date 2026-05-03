@@ -33,23 +33,34 @@ export default function RequestsPage() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackError, setFeedbackError]     = useState('');
 
-  // const load = useCallback(async () => {
-  //   if (!user) return;
-  //   setLoading(true);
-  //   try {
-      
-  //     setRequests(mapped);
-  //   } catch (e) {
-  //     console.error(e);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }, [user]);
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const history = await familiesApi.getHistory(user.familyId);
+      // Map history entries to HelpRequest shape so we can use them
+      const mapped = history.map((h): HelpRequest => ({
+        id: String(h.id),
+        requesterFamilyId: user.familyId,
+        offerId: '',
+        status: h.status,
+        offerTitle: h.title,
+        category: h.category,
+        createdAt: h.createdAt,
+        requesterFamilyName: user.familyName,
+      }));
+      setRequests(mapped);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (!authLoading && !user) { router.replace('/'); return; }
-    //if (user) load();
-  }, [user, authLoading, router,/**load */ ]);
+    if (!authLoading && !user) { router.replace('/login'); return; }
+    if (user) load();
+  }, [user, authLoading, router, load]);
 
   async function doAction(id: string, action: 'accept' | 'reject' | 'complete') {
     setActionLoading(id + action);
@@ -59,7 +70,7 @@ export default function RequestsPage() {
       if (action === 'reject')   await requestsApi.reject(id);
       if (action === 'complete') await requestsApi.complete(id);
       setSuccessMsg(`Request ${action}ed successfully.`);
-      // load();
+      load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Action failed');
     } finally {

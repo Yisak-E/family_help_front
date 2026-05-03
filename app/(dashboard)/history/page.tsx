@@ -16,7 +16,7 @@ export default function HistoryPage() {
 
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'OFFERED' | 'REQUESTED'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'OFFER' | 'SEEK'>('ALL');
 
   useEffect(() => {
     if (!authLoading && !user) { router.replace('/login'); return; }
@@ -30,12 +30,12 @@ export default function HistoryPage() {
 
   const filtered = typeFilter === 'ALL'
     ? history
-    : history.filter(h => h.type === typeFilter);
+    : history.filter(h => h.postType === typeFilter);
 
   const stats = {
     total:     history.length,
-    offered:   history.filter(h => h.type === 'OFFERED').length,
-    requested: history.filter(h => h.type === 'REQUESTED').length,
+    offered:   history.filter(h => h.postType === 'OFFER').length,
+    requested: history.filter(h => h.postType === 'SEEK').length,
     completed: history.filter(h => h.status === 'COMPLETED').length,
   };
 
@@ -70,13 +70,13 @@ export default function HistoryPage() {
 
         {/* Filter tabs */}
         <div className="flex gap-2 mb-6">
-          {(['ALL', 'OFFERED', 'REQUESTED'] as const).map(t => (
+          {(['ALL', 'OFFER', 'SEEK'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
               className={`btn btn-sm ${typeFilter === t ? 'btn-primary' : 'btn-outline'}`}
             >
-              {t === 'ALL' ? '📋 All' : t === 'OFFERED' ? '🤝 Offered' : '🙏 Requested'}
+              {t === 'ALL' ? '📋 All' : t === 'OFFER' ? '🤝 Offered' : '🙏 Requested'}
             </button>
           ))}
         </div>
@@ -100,18 +100,18 @@ export default function HistoryPage() {
                     <span
                       className="badge"
                       style={{
-                        background: entry.type === 'OFFERED' ? '#dcfce7' : '#ede9fe',
-                        color: entry.type === 'OFFERED' ? '#166534' : '#6b21a8',
+                        background: entry.postType === 'OFFERED' ? '#dcfce7' : '#ede9fe',
+                        color: entry.postType === 'OFFERED' ? '#166534' : '#6b21a8',
                       }}
                     >
-                      {entry.type === 'OFFERED' ? '🤝 Offered' : '🙏 Requested'}
+                      {entry.postType === 'OFFER' ? '🤝 Offered' : '🙏 Requested'}
                     </span>
                     <CategoryBadge category={entry.category} />
                     <div>
                       <p className="font-semibold">{entry.title}</p>
-                      {entry.partnerFamilyName && (
+                      {entry.family.familyName && (
                         <p className="text-sm text-muted">
-                          with {entry.partnerFamilyName}
+                          with {entry.family.familyName}
                         </p>
                       )}
                     </div>
@@ -122,11 +122,7 @@ export default function HistoryPage() {
                       {entry.createdAt && (
                         <p>{new Date(entry.createdAt).toLocaleDateString()}</p>
                       )}
-                      {entry.completedAt && (
-                        <p style={{ color: 'var(--teal-600)' }}>
-                          ✅ {new Date(entry.completedAt).toLocaleDateString()}
-                        </p>
-                      )}
+                     
                     </div>
                   </div>
                 </div>

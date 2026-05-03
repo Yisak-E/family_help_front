@@ -100,6 +100,8 @@ export interface UpdateProfileRequest {
 }
 
 export type ServiceCategory =
+  | 'SHOPPING'
+  | 'PETTING'
   | 'CHILDCARE'
   | 'TUTORING'
   | 'TRANSPORTATION'
@@ -108,9 +110,8 @@ export type ServiceCategory =
 
 export interface Offer {
   id: string;
-  familyId: string;
-  familyName?: string;
-  category: ServiceCategory;
+  family: FamilyProfile;
+  category: ServiceCategory | string;
   title: string;
   description: string;
   urgency?: string;
@@ -119,7 +120,7 @@ export interface Offer {
 
 export interface CreateOfferRequest {
   postType: string;
-  category: ServiceCategory;
+  category: ServiceCategory | string;
   title: string;
   description: string;
   urgency?: string;
@@ -129,7 +130,7 @@ export interface CreateOfferRequest {
 export interface CreatePostRequest {
   postType: 'OFFER' | 'SEEK' | string;
   title: string;
-  category: ServiceCategory;
+  category: ServiceCategory | string;
   description: string;
   urgency?: string;
   neededBy?: string; // ISO datetime string
@@ -143,9 +144,9 @@ export interface HelpRequest {
   requesterFamilyName?: string;
   offerId: string;
   offerTitle?: string;
-  category?: ServiceCategory;
+  category?: ServiceCategory | string;
   message?: string;
-  status: RequestStatus;
+  status:  string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -175,13 +176,56 @@ export interface CreateFeedbackRequest {
 
 export interface HistoryEntry {
   id: number;
-  type: string; // OFFER or REQUEST
+  postType: string;
   category: string;
   title: string;
   description?: string;
   status: string;
   urgency?: string;
-  createdAt?: string;
+  createdAt: string;
+  availableAt?: string;
+  neededBy?: string;
+  family: FamilyProfile;
+}
+
+/**
+ * {
+        "applicationCount": 0,
+        "availability": null,
+        "category": "tutoring",
+        "createdAt": "2026-05-02T05:41:24.186655",
+        "description": "math tutoring for university students",
+        "family": {
+            "id": 1,
+            "familyName": "Metaferiya Family",
+            "address": "Dubai",
+            "familySize": 4,
+            "trustScore": 5.0,
+            "completedInteractions": 0,
+            "cancelledInteractions": 0,
+            "email": "yisakdemelash7@gmail.com",
+            "lastActive": "2026-05-01T19:32:50.30108"
+        },
+        "id": 9,
+        "neededBy": null,
+        "postType": "OFFER",
+        "status": "OPEN",
+        "title": "math tutoring",
+        "urgency": null
+    }
+ */
+export interface My_ActivityEntry {
+  id: number;
+  postType: string;
+  category: string;
+  title: string;
+  description?: string;
+  status: string;
+  urgency?: string;
+  createdAt: string;
+  availableAt?: string;
+  neededBy?: string;
+  family: FamilyProfile;
 }
 
 
@@ -287,7 +331,7 @@ export const tasksApi = {
 // Offers API  –  /api/help/posts
 // ─────────────────────────────────────────────
 export const offersApi = {
-  list: (category?: ServiceCategory) => {
+  list: (category?: ServiceCategory | string ) => {
     const qs = category ? `?category=${category}` : '';
     return request<Offer[]>(`/help/posts${qs}`);
   },
