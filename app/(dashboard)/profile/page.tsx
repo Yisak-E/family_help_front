@@ -30,7 +30,7 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (!authLoading && !user) { router.replace('/login'); return; }
+    if (!authLoading && !user) { router.replace('/'); return; }
     if (user) {
       Promise.all([
         familiesApi.getProfile(user.familyId),

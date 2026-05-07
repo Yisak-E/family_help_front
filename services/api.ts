@@ -2,7 +2,20 @@
 // Central API client for FamilyHelpUAE Spring Boot backend
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8443/api';
-import { AuthResponse, LoginRequest, RegisterRequest, LeaderboardResponse } from './types';
+import { 
+  AuthResponse, LoginRequest, RegisterRequest, LeaderboardResponse,
+  CommunityPost, CreateHelpRequest, HelpFeedQuery, PostApplication,
+  CreateApplicationRequest, FeedbackResponse, SubmitFeedbackRequest,
+  UserDetail, FamilyDetail, CalendarEventDto
+} from './types';
+
+// Re-export types for convenience
+export type {
+  AuthResponse, LoginRequest, RegisterRequest, LeaderboardResponse,
+  CommunityPost, CreateHelpRequest, HelpFeedQuery, PostApplication,
+  CreateApplicationRequest, FeedbackResponse, SubmitFeedbackRequest,
+  UserDetail, FamilyDetail, CalendarEventDto
+};
 // ─────────────────────────────────────────────
 // Token helpers
 // ─────────────────────────────────────────────
@@ -110,6 +123,7 @@ export type ServiceCategory =
 
 export interface Offer {
   id: string;
+  postType?: 'OFFER' | 'SEEK' | string;
   family: FamilyProfile;
   category: ServiceCategory | string;
   title: string;
@@ -235,103 +249,218 @@ export interface My_ActivityEntry {
 // ─────────────────────────────────────────────
 // Auth API  –  POST /api/auth/*
 // ─────────────────────────────────────────────
+/**
+ * Auth Controller
+ * Handles user registration, login, and administrative user/family lookups.
+ */
 export const authApi = {
+  /**
+   * POST /api/auth/signup
+   * Register a new user with family details
+   */
   register: (body: RegisterRequest) =>
     request<AuthResponse>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
 
+  /**
+   * POST /api/auth/login
+   * Authenticate a user with email and password
+   */
   login: (body: LoginRequest) =>
     request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
 
-  // Backend uses a misspelled 'refress' endpoint
+  /**
+   * POST /api/auth/refress (note: backend spelling is 'refress')
+   * Refresh the authentication token
+   */
   refresh: (refreshToken: string) =>
     request<AuthResponse>('/auth/refress', {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
     }),
+
+  /**
+   * GET /api/auth/allUser
+   * (Admin) Retrieve all registered users with roles, family details, and account status
+   */
+  getAllUsers: () =>
+    request<UserDetail[]>('/auth/allUser'),
+
+  /**
+   * GET /api/auth/allFamily
+   * (Admin) Retrieve all registered families
+   */
+  getAllFamilies: () =>
+    request<FamilyDetail[]>('/auth/allFamily'),
 };
 
 // ─────────────────────────────────────────────
-// Family Profiles API  –  /api/families/{id}
+// Family Controller API  –  /api/families
 // ─────────────────────────────────────────────
+/**
+ * Family Controller
+ * Manages family profiles and information
+ */
 export const familiesApi = {
-  getProfile: (id: string) =>
+  /**
+   * GET /api/families/{id}
+   * Get a family's profile by ID
+   */
+  getProfile: (id: string | number) =>
     request<FamilyProfile>(`/families/${id}`),
 
+  /**
+   * PUT /api/families/{id}
+   * Update a family's profile
+   */
   updateProfile: (id: string, body: UpdateProfileRequest) =>
     request<FamilyProfile>(`/families/${id}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
 
-
-
-  // Backend provides a user-scoped activity endpoint
-  getHistory: (_id?: string) =>
+  /**
+   * GET /api/help/my-activity
+   * Get the current user/family's activity history
+   */
+  getHistory: () =>
     request<HistoryEntry[]>(`/help/my-activity`),
 };
 
 // ─────────────────────────────────────────────
-// Rewards / Leaderboard API – /api/rewards
+// Rewards API  –  /api/rewards
 // ─────────────────────────────────────────────
+/**
+ * Reward Controller
+ * Handles gamification and trust score leaderboards
+ */
 export const rewardsApi = {
+  /**
+   * GET /api/rewards/leaderboard
+   * Get the global trust score leaderboard
+   */
   getLeaderboard: () =>
     request<LeaderboardResponse[]>('/rewards/leaderboard'),
 
-  getMine: (id: string | number) =>
-    request<LeaderboardResponse>(`/rewards/mine/${id}`),
+  /**
+   * GET /api/rewards/mine/{familyId}
+   * Get rewards/trust score for a specific family
+   */
+  getMine: (familyId: string | number) =>
+    request<LeaderboardResponse>(`/rewards/mine/${familyId}`),
 };
 
 // ─────────────────────────────────────────────
-// Calendar API
+// Calendar API  –  /api/calendar
 // ─────────────────────────────────────────────
-export interface CalendarEvent {
-  postId: number;
-  title: string;
-  category: string;
-  scheduledTime: string; // ISO datetime
-  status: string;
-  role: 'HELPER' | 'RECEIVER' | string;
-  otherFamilyName?: string;
-}
-
+/**
+ * Calendar Controller
+ * Manages scheduled events and interactions
+ */
 export const calendarApi = {
-  getWeekly: () => request<CalendarEvent[]>('/calendar/weekly'),
+  /**
+   * GET /api/calendar/weekly
+   * Get weekly scheduled events for the current family
+   */
+  getWeekly: () =>
+    request<CalendarEventDto[]>('/calendar/weekly'),
 };
 
 // ─────────────────────────────────────────────
-// Tasks API
+// Help & Tasks API  –  /api/help
 // ─────────────────────────────────────────────
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  createdAt?: string;
-  completed?: boolean;
-}
+/**
+ * Task & Help Controller
+ * Used for managing help requests, viewing feeds, and tracking personal activity.
+ * Endpoints for SEEK (help needed) and OFFER (willing to help) posts.
+ */
+export const helpApi = {
+  /**
+   * POST /api/help
+   * Create a new help request (SEEK or OFFER)
+   */
+  createRequest: (body: CreateHelpRequest) =>
+    request<CommunityPost>('/help', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
-export interface CreateTaskRequest {
-  title: string;
-  description?: string;
-}
+  /**
+   * PATCH /api/help/{taskId}/complete
+   * Mark a task as complete
+   */
+  completeTask: (taskId: number) =>
+    request<string>(`/help/${taskId}/complete`, { method: 'PATCH' }),
 
-export const tasksApi = {
-  createTask: (body: CreateTaskRequest) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(body) }),
-  getCommunityFeed: () => request<Task[]>('/tasks/feed'),
-  getTaskById: (taskId: string) => request<Task>(`/tasks/${taskId}`),
-  completeTask: (taskId: string) => request<void>(`/tasks/${taskId}/complete`, { method: 'PATCH' }),
+  /**
+   * GET /api/help/{taskId}
+   * Get full task/post details by ID
+   */
+  getTaskById: (taskId: number) =>
+    request<CommunityPost>(`/help/${taskId}`),
+
+  /**
+   * GET /api/help/feed
+   * View the help feed with optional filters
+   * @param query - Optional filters: type, category, status
+   */
+  getFeed: (query?: HelpFeedQuery) => {
+    const params = new URLSearchParams();
+    if (query?.type) params.append('type', query.type);
+    if (query?.category) params.append('category', query.category);
+    if (query?.status) params.append('status', query.status);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return request<CommunityPost[]>(`/help/feed${qs}`);
+  },
+
+  /**
+   * GET /api/help/posts
+   * Get help posts (SEEK/OFFER) with optional type filter
+   */
+  getPosts: (type?: string) => {
+    const qs = type ? `?type=${type}` : '';
+    return request<CommunityPost[]>(`/help/posts${qs}`);
+  },
+
+  /**
+   * POST /api/help/posts
+   * Create a help post (SEEK or OFFER)
+   */
+  createPost: (body: CreateHelpRequest) =>
+    request<CommunityPost>('/help/posts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * GET /api/help/my-activity
+   * Get the current user's activity/interaction history
+   */
+  getMyActivity: () =>
+    request<CommunityPost[]>('/help/my-activity'),
+
+  /**
+   * DELETE /api/help/{taskId}
+   * Delete a help post owned by the current family
+   */
+  deletePost: (postId: number) =>
+    request<void>(`/help/${postId}`, {
+      method: 'DELETE',
+    }),
 };
 
 // ─────────────────────────────────────────────
-// Offers API  –  /api/help/posts
+// Legacy Exports (maintain backward compatibility)
 // ─────────────────────────────────────────────
+
+/** @deprecated Use helpApi.createPost() and helpApi.getPosts() for modern usage */
 export const offersApi = {
-  list: (category?: ServiceCategory | string ) => {
+  list: (category?: ServiceCategory | string) => {
     const qs = category ? `?category=${category}` : '';
     return request<Offer[]>(`/help/posts${qs}`);
   },
@@ -343,43 +472,102 @@ export const offersApi = {
     }),
 };
 
-// ─────────────────────────────────────────────
-// Requests API  –  /api/requests
-// ─────────────────────────────────────────────
+/** @deprecated Use applicationsApi instead */
 export const requestsApi = {
-  // Apply to a post (creates an application)
-  create: (body: CreateRequestRequest) =>
-    request<HelpRequest>(`/applications/apply/${body.offerId}`, {
+  /**
+   * Legacy: Apply to a post via offerId
+   * Maps to: POST /api/applications/apply/{postId}
+   */
+  create: (body: { offerId: string | number; message?: string }) =>
+    request<PostApplication>(`/applications/apply/${body.offerId}`, {
       method: 'POST',
       body: JSON.stringify({ message: body.message }),
     }),
 
-  // Accept an application
-  accept: (id: string) =>
-    request<HelpRequest>(`/applications/${id}/accept`, { method: 'PATCH' }),
+  /**
+   * Legacy: Accept an application
+   * Maps to: PATCH /api/applications/{applicationId}/accept
+   */
+  accept: (id: string | number) =>
+    request<PostApplication>(`/applications/${id}/accept`, { method: 'PATCH' }),
 
-  // Reject / cancel an application
-  reject: (id: string) =>
+  /**
+   * Legacy: Reject/cancel an application
+   * Maps to: DELETE /api/applications/{applicationId}/cancel
+   */
+  reject: (id: string | number) =>
     request<void>(`/applications/${id}/cancel`, { method: 'DELETE' }),
 
-  // Complete action — backend has no explicit applications/complete endpoint in the list;
-  // map to accept as a placeholder (adjust if you have a dedicated complete endpoint).
-  complete: (id: string) =>
-    request<HelpRequest>(`/applications/${id}/accept`, { method: 'PATCH' }),
+  /**
+   * Legacy: Get applications for a post
+   * Maps to: GET /api/applications/post/{postId}
+   */
+  getApplicantsForPost: (postId: string | number) =>
+    request<PostApplication[]>(`/applications/post/${postId}`),
+};
 
-  // Utility: list applicants for a post
-  getApplicantsForPost: (postId: string) =>
-    request<HelpRequest[]>(`/applications/post/${postId}`),
+// ─────────────────────────────────────────────
+// Applications API  –  /api/applications
+// ─────────────────────────────────────────────
+/**
+ * Application Controller
+ * Manages the application process where families apply to help each other.
+ */
+export const applicationsApi = {
+  /**
+   * POST /api/applications/apply/{postId}
+   * Apply to a specific post (become a helper/provider)
+   */
+  applyToPost: (postId: number, message?: string) =>
+    request<PostApplication>(`/applications/apply/${postId}`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+
+  /**
+   * PATCH /api/applications/{applicationId}/accept
+   * Accept a help application
+   */
+  acceptApplication: (applicationId: number) =>
+    request<PostApplication>(`/applications/${applicationId}/accept`, {
+      method: 'PATCH',
+    }),
+
+  /**
+   * GET /api/applications/post/{postId}
+   * View all applications for a specific post
+   */
+  getApplicationsForPost: (postId: number) =>
+    request<PostApplication[]>(`/applications/post/${postId}`),
+
+  /**
+   * DELETE /api/applications/{applicationId}/cancel
+   * Cancel/reject an application
+   */
+  cancelApplication: (applicationId: number) =>
+    request<void>(`/applications/${applicationId}/cancel`, {
+      method: 'DELETE',
+    }),
 };
 
 // ─────────────────────────────────────────────
 // Feedback API  –  /api/feedback
 // ─────────────────────────────────────────────
+/**
+ * Feedback Controller
+ * Manages ratings and feedback for completed interactions
+ */
 export const feedbackApi = {
-  // Backend expects postId in path: /api/feedback/submit/{postId}
-  submit: (body: CreateFeedbackRequest) =>
-    request<Feedback>(`/feedback/submit/${body.postId}`, {
+  /**
+   * POST /api/feedback/submit/{postId}
+   * Submit a rating/feedback for a completed post
+   * @param postId - The post ID to rate
+   * @param rating - Numeric rating (1-5 typically)
+   * @param comment - Optional text feedback
+   */
+  submitFeedback: (postId: number, rating: number, comment?: string) =>
+    request<FeedbackResponse>(`/feedback/submit/${postId}`, {
       method: 'POST',
-      body: JSON.stringify({ rating: body.rating, comment: body.comment }),
+      body: JSON.stringify({ rating, comment }),
     }),
 };

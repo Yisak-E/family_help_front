@@ -137,8 +137,8 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted" style={{ marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {offer.description}
                   </p>
-                  {offer.familyName && (
-                    <p className="text-sm text-muted">by {offer.familyName}</p>
+                  {offer.family.familyName && (
+                    <p className="text-sm text-muted">by {offer.family.familyName}</p>
                   )}
                  
                 </div>

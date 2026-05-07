@@ -7,8 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/context/AuthContext';
 import {
-  offersApi, requestsApi,
-  Offer, ServiceCategory, CreatePostRequest,
+  helpApi, offersApi, applicationsApi,
+  Offer, ServiceCategory, CreatePostRequest, PostApplication,
 } from '@/services/api';
 import CategoryBadge from '@/components/CategoryBadge';
 
@@ -36,6 +36,9 @@ export default function OffersPage() {
   const [filter, setFilter]         = useState<ServiceCategory | ''>('');
   const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1');
   const [showRequest, setShowRequest] = useState<Offer | null>(null);
+  const [applicationStatusByOffer, setApplicationStatusByOffer] = useState<
+    Record<string, { id: number; status: PostApplication['status'] } | undefined>
+  >({});
 
   // Create offer form (maps to CreatePostRequest)
   const [offerForm, setOfferForm] = useState<CreatePostRequest>({
@@ -54,6 +57,9 @@ export default function OffersPage() {
   const [requestMsg, setRequestMsg]     = useState('');
   const [requestError, setRequestError] = useState('');
   const [requestLoading, setRequestLoading] = useState(false);
+  const [cancelLoadingId, setCancelLoadingId] = useState<number | null>(null);
+  const [postDeleteLoadingId, setPostDeleteLoadingId] = useState<number | null>(null);
+  const [pageError, setPageError] = useState('');
 
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -62,12 +68,33 @@ export default function OffersPage() {
     try {
       const data = await offersApi.list(filter || undefined);
       setOffers(data);
+
+      if (user) {
+        const statuses = await Promise.all(
+          data.map(async (offer) => {
+            const postId = Number(offer.id);
+            if (Number.isNaN(postId)) return [offer.id, undefined] as const;
+
+            try {
+              const applications = await applicationsApi.getApplicationsForPost(postId);
+              const mine = applications.find(app => String(app.applicantFamily?.id) === String(user.familyId));
+              return [offer.id, mine ? { id: mine.id, status: mine.status } : undefined] as const;
+            } catch {
+              return [offer.id, undefined] as const;
+            }
+          })
+        );
+
+        setApplicationStatusByOffer(Object.fromEntries(statuses));
+      } else {
+        setApplicationStatusByOffer({});
+      }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, user]);
 
   useEffect(() => {
     if (!authLoading && !user) { router.replace('/login'); return; }
@@ -101,14 +128,65 @@ export default function OffersPage() {
     setRequestError('');
     setRequestLoading(true);
     try {
-      await requestsApi.create({ offerId: showRequest.id, message: requestMsg || undefined });
+      await applicationsApi.applyToPost(Number(showRequest.id), requestMsg || undefined);
       setShowRequest(null);
       setRequestMsg('');
       setSuccessMsg('Help request sent! ✅');
+      fetchOffers();
     } catch (err: unknown) {
       setRequestError(err instanceof Error ? err.message : 'Failed to send request');
     } finally {
       setRequestLoading(false);
+    }
+  }
+
+  async function handleCancelRequest(offerId: string) {
+    const application = applicationStatusByOffer[offerId];
+    if (!application) return;
+
+    setPageError('');
+    setCancelLoadingId(application.id);
+    try {
+      await applicationsApi.cancelApplication(application.id);
+      setShowRequest(null);
+      setRequestMsg('');
+      setSuccessMsg('Request canceled successfully.');
+      fetchOffers();
+    } catch (err: unknown) {
+      setPageError(err instanceof Error ? err.message : 'Failed to cancel request');
+    } finally {
+      setCancelLoadingId(null);
+    }
+  }
+
+  async function handleDeleteOffer(postId: number) {
+    setPageError('');
+    setPostDeleteLoadingId(postId);
+    try {
+      await helpApi.deletePost(postId);
+      setSuccessMsg('Post deleted successfully.');
+      fetchOffers();
+    } catch (err: unknown) {
+      setPageError(err instanceof Error ? err.message : 'Failed to delete post');
+    } finally {
+      setPostDeleteLoadingId(null);
+    }
+  }
+
+  function getApplicationBadgeStyle(status: PostApplication['status']) {
+    switch (status) {
+      case 'PENDING':
+        return { background: '#fef3c7', color: '#92400e', borderColor: '#f59e0b' };
+      case 'ACCEPTED':
+      case 'IN_PROGRESS':
+        return { background: '#dcfce7', color: '#166534', borderColor: '#22c55e' };
+      case 'COMPLETED':
+      case 'CLOSED':
+        return { background: '#e0f2fe', color: '#075985', borderColor: '#38bdf8' };
+      case 'REJECTED':
+        return { background: '#fee2e2', color: '#991b1b', borderColor: '#ef4444' };
+      default:
+        return { background: '#f3f4f6', color: '#374151', borderColor: '#d1d5db' };
     }
   }
 
@@ -131,6 +209,7 @@ export default function OffersPage() {
             <button onClick={() => setSuccessMsg('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
           </div>
         )}
+        {pageError && <div className="alert alert-error mb-4">{pageError}</div>}
 
         {/* Toolbar */}
         <div className="flex justify-between items-center mb-6" style={{ flexWrap: 'wrap', gap: 12 }}>
@@ -167,9 +246,22 @@ export default function OffersPage() {
             {offers.map(offer => (
               <div key={offer.id} className="card">
                 <div className="card-body">
-                  <div className="flex justify-between items-center mb-2">
+                  <div className="flex justify-between items-start mb-2" style={{ gap: 12 }}>
                     <CategoryBadge category={offer.category} />
-                    <p>{offer.category}</p>
+                    {applicationStatusByOffer[offer.id] && (
+                      <span
+                        className="badge"
+                        style={{
+                          ...getApplicationBadgeStyle(applicationStatusByOffer[offer.id]!.status),
+                          borderStyle: 'solid',
+                          borderWidth: 1,
+                        }}
+                      >
+                        {applicationStatusByOffer[offer.id]!.status === 'PENDING'
+                          ? 'Request Pending'
+                          : `Status: ${applicationStatusByOffer[offer.id]!.status}`}
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-semibold text-lg" style={{ marginBottom: 6 }}>{offer.title}</h3>
                   <p className="text-sm text-muted" style={{ marginBottom: 12 }}>{offer.description}</p>
@@ -182,15 +274,58 @@ export default function OffersPage() {
                     <p className="text-sm text-muted">🕐 {offer.urgency}</p>
                   )}
                   <div className="divider" />
-                  {offer.family?.familyName !== user?.familyName ? (
+                  {String(offer.family?.id) === String(user?.familyId) ? (
+                    <button
+                      className="btn btn-danger btn-full btn-sm"
+                      disabled={postDeleteLoadingId === Number(offer.id)}
+                      onClick={() => handleDeleteOffer(Number(offer.id))}
+                    >
+                      {postDeleteLoadingId === Number(offer.id) ? 'Deleting…' : '🗑 Delete Post'}
+                    </button>
+                  ) : applicationStatusByOffer[offer.id]?.status === 'PENDING' ? (
+                    <div className="flex flex-col gap-2">
+                      <button
+                        className="btn btn-full btn-sm btn-outline"
+                        disabled
+                        style={{
+                          cursor: 'not-allowed',
+                          opacity: 0.85,
+                          borderColor: getApplicationBadgeStyle(applicationStatusByOffer[offer.id]!.status).borderColor,
+                          color: getApplicationBadgeStyle(applicationStatusByOffer[offer.id]!.status).color,
+                          background: getApplicationBadgeStyle(applicationStatusByOffer[offer.id]!.status).background,
+                        }}
+                      >
+                        Request Pending
+                      </button>
+                      <button
+                        className="btn btn-danger btn-full btn-sm"
+                        disabled={cancelLoadingId === applicationStatusByOffer[offer.id]!.id}
+                        onClick={() => handleCancelRequest(offer.id)}
+                      >
+                        {cancelLoadingId === applicationStatusByOffer[offer.id]!.id ? 'Canceling…' : 'Cancel Request'}
+                      </button>
+                    </div>
+                  ) : applicationStatusByOffer[offer.id] ? (
+                    <button
+                      className="btn btn-full btn-sm btn-outline"
+                      disabled
+                      style={{
+                        cursor: 'not-allowed',
+                        opacity: 0.85,
+                        borderColor: getApplicationBadgeStyle(applicationStatusByOffer[offer.id]!.status).borderColor,
+                        color: getApplicationBadgeStyle(applicationStatusByOffer[offer.id]!.status).color,
+                        background: getApplicationBadgeStyle(applicationStatusByOffer[offer.id]!.status).background,
+                      }}
+                    >
+                      {`Applied: ${applicationStatusByOffer[offer.id]!.status}`}
+                    </button>
+                  ) : (
                     <button
                       className="btn btn-primary btn-full btn-sm"
                       onClick={() => setShowRequest(offer)}
                     >
-                      Request This Help →
+                      {offer.postType === 'SEEK' ? 'Offer the Help →' : 'Request This Offer →'}
                     </button>
-                  ) : (
-                    <p className="text-sm text-muted text-center">✏️ Your offer</p>
                   )}
                 </div>
               </div>
