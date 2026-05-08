@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/context/AuthContext';
-import { familiesApi, offersApi, Offer, rewardsApi } from '@/services/api';
+import { helpApi, rewardsApi } from '@/services/api';
 import { LeaderboardResponse } from '@/services/types';
+import type { CommunityPost } from '@/services/types';
 import CategoryBadge from '@/components/CategoryBadge';
 import StarRating from '@/components/StarRating';
 
@@ -16,7 +17,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [reputation, setReputation] = useState<LeaderboardResponse | null>(null);
-  const [recentOffers, setRecentOffers] = useState<Offer[]>([]);
+  const [recentOffers, setRecentOffers] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,11 +29,11 @@ export default function DashboardPage() {
       
       Promise.all([
         rewardsApi.getMine(Number(user.familyId)),
-        offersApi.list(),
+        helpApi.getFeed({ page: 0, size: 6 }),
       ])
-        .then(([rep, offers]) => {
+        .then(([rep, feed]) => {
           setReputation(rep);
-          setRecentOffers(offers.slice(0, 6));
+          setRecentOffers(feed.content || []);
         })
         .catch(console.error)
         .finally(() => setLoading(false));
@@ -137,7 +138,7 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted" style={{ marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {offer.description}
                   </p>
-                  {offer.family.familyName && (
+                  {offer.family?.familyName && (
                     <p className="text-sm text-muted">by {offer.family.familyName}</p>
                   )}
                  

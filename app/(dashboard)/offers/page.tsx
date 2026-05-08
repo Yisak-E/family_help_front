@@ -2,13 +2,13 @@
 // app/offers/page.tsx
 // Covers:  GET /api/help/posts, POST /api/help/posts, POST /api/applications/apply/{postId}
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/context/AuthContext';
 import {
-  helpApi, offersApi, applicationsApi,
-  Offer, ServiceCategory, CreatePostRequest, PostApplication,
+  helpApi, applicationsApi,
+  CommunityPost, ServiceCategory, CreatePostRequest, PostApplication,
 } from '@/services/api';
 import CategoryBadge from '@/components/CategoryBadge';
 
@@ -31,11 +31,16 @@ export default function OffersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [offers, setOffers]         = useState<Offer[]>([]);
+  const [offers, setOffers]         = useState<CommunityPost[]>([]);
+  const offersRef = useRef<CommunityPost[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
   const [filter, setFilter]         = useState<ServiceCategory | ''>('');
   const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1');
-  const [showRequest, setShowRequest] = useState<Offer | null>(null);
+  const [showRequest, setShowRequest] = useState<CommunityPost | null>(null);
   const [applicationStatusByOffer, setApplicationStatusByOffer] = useState<
     Record<string, { id: number; status: PostApplication['status'] } | undefined>
   >({});
@@ -63,15 +68,24 @@ export default function OffersPage() {
 
   const [successMsg, setSuccessMsg] = useState('');
 
-  const fetchOffers = useCallback(async () => {
-    setLoading(true);
+  const fetchOffers = useCallback(async (targetPage = 0, append = false) => {
+    if (append) setLoadingMore(true); else setLoading(true);
     try {
-      const data = await offersApi.list(filter || undefined);
-      setOffers(data);
+      const feed = await helpApi.getFeed({
+        category: filter || undefined,
+        page: targetPage,
+        size: PAGE_SIZE,
+      });
+      const fetched = feed.content || [];
+      const mergedOffers = append ? [...offersRef.current, ...fetched] : fetched;
+      setOffers(mergedOffers);
+      offersRef.current = mergedOffers;
+      setPage(feed.number ?? targetPage);
+      setHasMore(!feed.last);
 
       if (user) {
         const statuses = await Promise.all(
-          data.map(async (offer) => {
+          mergedOffers.map(async (offer) => {
             const postId = Number(offer.id);
             if (Number.isNaN(postId)) return [offer.id, undefined] as const;
 
@@ -92,13 +106,13 @@ export default function OffersPage() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false); else setLoading(false);
     }
   }, [filter, user]);
 
   useEffect(() => {
     if (!authLoading && !user) { router.replace('/login'); return; }
-    if (user) fetchOffers();
+    if (user) fetchOffers(0, false);
   }, [user, authLoading, router, fetchOffers]);
 
   async function handleCreateOffer(e: React.FormEvent) {
@@ -111,11 +125,11 @@ export default function OffersPage() {
         ...offerForm,
         neededBy: offerForm.neededBy ? new Date(offerForm.neededBy).toISOString() : undefined,
       };
-      await offersApi.create(payload);
+      await helpApi.createPost(payload);
       setShowCreate(false);
       setOfferForm({ postType: 'OFFER', category: 'CHILDCARE', title: '', description: '', urgency: '', neededBy: '' });
       setSuccessMsg('Offer posted successfully! 🎉');
-      fetchOffers();
+      fetchOffers(0, false);
     } catch (err: unknown) {
       setOfferError(err instanceof Error ? err.message : 'Failed to create offer');
     } finally {
@@ -132,7 +146,7 @@ export default function OffersPage() {
       setShowRequest(null);
       setRequestMsg('');
       setSuccessMsg('Help request sent! ✅');
-      fetchOffers();
+      fetchOffers(0, false);
     } catch (err: unknown) {
       setRequestError(err instanceof Error ? err.message : 'Failed to send request');
     } finally {
@@ -140,8 +154,8 @@ export default function OffersPage() {
     }
   }
 
-  async function handleCancelRequest(offerId: string) {
-    const application = applicationStatusByOffer[offerId];
+  async function handleCancelRequest(offerId: string | number) {
+    const application = applicationStatusByOffer[String(offerId)];
     if (!application) return;
 
     setPageError('');
@@ -151,7 +165,7 @@ export default function OffersPage() {
       setShowRequest(null);
       setRequestMsg('');
       setSuccessMsg('Request canceled successfully.');
-      fetchOffers();
+      fetchOffers(0, false);
     } catch (err: unknown) {
       setPageError(err instanceof Error ? err.message : 'Failed to cancel request');
     } finally {
@@ -165,7 +179,7 @@ export default function OffersPage() {
     try {
       await helpApi.deletePost(postId);
       setSuccessMsg('Post deleted successfully.');
-      fetchOffers();
+      fetchOffers(0, false);
     } catch (err: unknown) {
       setPageError(err instanceof Error ? err.message : 'Failed to delete post');
     } finally {
@@ -242,9 +256,10 @@ export default function OffersPage() {
             <p>Try a different category or be the first to post!</p>
           </div>
         ) : (
-          <div className="grid-3">
-            {offers.map(offer => (
-              <div key={offer.id} className="card">
+          <>
+            <div className="grid-3">
+              {offers.map(offer => (
+                <div key={offer.id} className="card">
                 <div className="card-body">
                   <div className="flex justify-between items-start mb-2" style={{ gap: 12 }}>
                     <CategoryBadge category={offer.category} />
@@ -329,8 +344,20 @@ export default function OffersPage() {
                   )}
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {hasMore && (
+              <div className="flex justify-center" style={{ marginTop: 24 }}>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => fetchOffers(page + 1, true)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading…' : 'Load More Posts'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

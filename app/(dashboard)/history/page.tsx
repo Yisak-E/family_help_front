@@ -16,7 +16,7 @@ export default function HistoryPage() {
 
   const [history, setHistory] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'OFFER' | 'SEEK'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'OFFER' | 'REQUEST'>('ALL');
 
   useEffect(() => {
     if (!authLoading && !user) { router.replace('/login'); return; }
@@ -28,14 +28,17 @@ export default function HistoryPage() {
     }
   }, [user, authLoading, router]);
 
+  const isRequestedType = (t: string) => t === 'REQUEST' || t === 'SEEK';
   const filtered = typeFilter === 'ALL'
     ? history
-    : history.filter(h => h.postType === typeFilter);
+    : typeFilter === 'OFFER'
+      ? history.filter(h => h.postType === 'OFFER')
+      : history.filter(h => isRequestedType(h.postType));
 
   const stats = {
     total:     history.length,
     offered:   history.filter(h => h.postType === 'OFFER').length,
-    requested: history.filter(h => h.postType === 'SEEK').length,
+    requested: history.filter(h => isRequestedType(h.postType)).length,
     completed: history.filter(h => h.status === 'COMPLETED').length,
   };
 
